@@ -3,6 +3,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const helmet  = require('helmet');
 
 const authRoutes        = require('./routes/auth');
 const dashboardRoutes   = require('./routes/dashboard');
@@ -23,6 +24,7 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+app.use(helmet({ contentSecurityPolicy: false })); // CSP off — dashboard servido por Vercel static, no Express
 app.use(cors(corsOptions));
 app.use(express.json());
 

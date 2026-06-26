@@ -224,7 +224,25 @@ CREATE TRIGGER trg_traslados_ts
     FOR EACH ROW EXECUTE FUNCTION actualizar_timestamp();
 
 -- ============================================================
+-- activity_log — auditoría de acciones de usuario
+-- Agregado en migración add_activity_log (26/06/2026)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS activity_log (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    usuario_id  UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+    email       VARCHAR(100),
+    accion      VARCHAR(50) NOT NULL,
+    detalle     TEXT,
+    ip          VARCHAR(45),
+    creado_en   TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_creado   ON activity_log (creado_en DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_log_usuario  ON activity_log (usuario_id);
+
+-- ============================================================
 -- FIN DEL SCHEMA — GAU-9 Fase 1
 -- Tablas: personas, internos_detalle, personal_spb,
---         civiles_ingreso, presentismo, traslados, sync_log
+--         civiles_ingreso, presentismo, traslados, sync_log,
+--         usuarios, activity_log
 -- ============================================================

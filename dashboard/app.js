@@ -102,8 +102,17 @@ function gau9App() {
     },
 
     logout() {
+      // Limpiar cache del SW para que el próximo usuario no vea datos anteriores
+      if ('caches' in window) {
+        caches.delete('gau9-v1-api').catch(() => {});
+      }
       this.cerrarSesionLocal();
       this.autenticado = false;
+      this.resumen = null;
+      this.actividadReciente = [];
+      this.presentismo = [];
+      this.civiles = [];
+      this.traslados = [];
       this.loginForm = { email: '', password: '' };
     },
 
