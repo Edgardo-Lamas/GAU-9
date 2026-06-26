@@ -51,13 +51,16 @@ Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las l
 | Capa | Tecnología | Costo |
 |------|-----------|-------|
 | Base de datos | PostgreSQL (Supabase free tier) | Gratuito |
-| Backend / Worker | **Node.js + Express** (confirmado) | Gratuito |
-| Sincronización | Google Drive API v3 — solo lectura | Gratuito |
-| Frontend | **Alpine.js + Tailwind CSS** — PWA | Gratuito |
-| Hosting API | Railway | Gratuito |
-| Hosting Frontend | Vercel o Netlify | Gratuito |
+| Backend / API | **Node.js + Express serverless** | Gratuito |
+| Sincronización Drive | **GitHub Actions cron** (cada 30 min) — `worker/sync-once.js` | Gratuito |
+| Google Drive API | Drive API v3 + Sheets API v4 — solo lectura | Gratuito |
+| Frontend | **Alpine.js + CSS custom properties** — PWA | Gratuito |
+| Hosting (API + Frontend) | **Vercel** — mismo dominio, misma app | Gratuito |
 | Auth | JWT (jsonwebtoken + bcryptjs) | Gratuito |
+| Seguridad HTTP | **helmet.js** | Gratuito |
 | Asistente IA | API Anthropic — claude-sonnet-4-6 (Fase 3) | ~$5/mes estimado |
+
+> **Railway trial expiró (Jun 2026).** Se migró a Vercel (API serverless + static dashboard) + GitHub Actions (worker cron). El endpoint `POST /api/sync/ejecutar` NO funciona en Vercel serverless — la sincronización real es exclusivamente via GitHub Actions.
 
 **Principio:** Costo cero en Fase 1 y Fase 2. El único costo aparece en Fase 3 con el asistente IA, y será evaluado contra el valor operativo que genere.
 
@@ -72,13 +75,17 @@ Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las l
 ```
 [Google Drive] ← solo lectura
      ↓
-[Worker de Sincronización]  (node-cron, Railway)
+[GitHub Actions — cron cada 30 min]
+  └── worker/sync-once.js (corre todos los sync y sale)
      ↓
-[PostgreSQL — Supabase]
+[PostgreSQL — Supabase]  (sa-east-1, pooler IPv4)
      ↓
-[API REST — Express]
+[API REST — Express serverless en Vercel]
+  ├── /api/*  → api/index.js
+  └── /*      → dashboard/ (archivos estáticos)
      ↓
-[Dashboard Móvil PWA]  (Alpine.js + Tailwind)
+[Dashboard Móvil PWA]  (Alpine.js + CSS design system)
+  URL: https://gau-9.vercel.app
 ```
 
 ---
@@ -87,13 +94,18 @@ Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las l
 
 ```
 gau9/
-├── schema_gau9.sql            ← schema original con modificaciones
-├── schema_auth.sql            ← tabla usuarios (agregada — no estaba en schema original)
+├── schema_gau9.sql            ← schema + activity_log al final
+├── schema_auth.sql            ← tabla usuarios
+├── vercel.json                ← routes: /api/* → api/index.js, /* → dashboard/
 ├── .env
-├── .env.example
+├── .env.example               ← incluye DASHBOARD_ORIGIN
+├── .github/
+│   └── workflows/
+│       └── sync.yml           ← cron cada 30 min → node worker/sync-once.js
 ├── worker/
-│   ├── index.js               ← orquestador + node-cron
-│   ├── drive.js               ← autenticación service account + lectura
+│   ├── sync-once.js           ← entry point GitHub Actions (corre todos y sale)
+│   ├── index.js               ← orquestador local (dev) + node-cron
+│   ├── drive.js               ← auth service account + leerXlsx + leerSheetCompleto
 │   ├── normalizar.js          ← normalizarDNI(), normalizarFC(), mapearRol(), normalizarTurno()
 │   ├── sync_primario.js
 │   ├── sync_secundario.js
@@ -101,22 +113,28 @@ gau9/
 │   ├── sync_trabajadores.js
 │   └── sync_facultades.js
 ├── api/
-│   ├── index.js               ← Express entry point
+│   ├── index.js               ← Express entry point + helmet + todas las rutas
+│   ├── db.js                  ← pool pg
+│   ├── logger.js              ← log() silencioso — nunca interrumpe la operación principal
 │   ├── middleware/
-│   │   └── auth.js            ← JWT verify middleware
-│   ├── routes/
-│   │   ├── auth.js            ← POST /api/auth/login
-│   │   ├── presentismo.js
-│   │   ├── civiles.js
-│   │   ├── traslados.js
-│   │   ├── personas.js
-│   │   └── sync.js
-│   └── db.js                  ← pool pg
+│   │   └── auth.js            ← JWT verify; sets req.user Y req.usuario (alias)
+│   └── routes/
+│       ├── auth.js            ← POST /login + POST /cambiar-password
+│       ├── dashboard.js       ← GET /api/dashboard/resumen
+│       ├── actividad.js       ← GET /api/actividad?limit=N (ADMIN ve todo, JEFE ve lo propio)
+│       ├── presentismo.js
+│       ├── civiles.js
+│       ├── traslados.js
+│       ├── personas.js
+│       └── sync.js
 ├── dashboard/
-│   ├── index.html
-│   ├── sw.js                  ← Service Worker
-│   ├── app.js                 ← Alpine.js components
-│   └── style.css
+│   ├── index.html             ← PWA reescrito con design system institucional
+│   ├── app.js                 ← Alpine.js — todos los componentes y lógica
+│   ├── sw.js                  ← Service Worker Cache First + Background Sync
+│   ├── style.css              ← Design system completo (CSS custom properties)
+│   ├── manifest.json          ← PWA manifest (theme navy #0f1f4a)
+│   └── icons/
+│       └── icon.svg           ← ícono institucional navy + gold
 └── CLAUDE.md
 ```
 
@@ -133,7 +151,10 @@ SYNC_INTERVALO_MINUTOS=30
 JWT_SECRET=<secreto largo aleatorio>
 JWT_EXPIRES_IN=8h
 NODE_ENV=development
+DASHBOARD_ORIGIN=https://gau-9.vercel.app   ← CORS en producción
 ```
+
+> En GitHub Actions, el JSON de la service account se guarda como secret `GOOGLE_SERVICE_ACCOUNT_JSON` y el workflow lo escribe en `credentials/service_account.json` antes de correr el worker.
 
 ---
 
@@ -239,6 +260,11 @@ Todos los endpoints excepto `/api/auth/login` requieren `Authorization: Bearer <
 
 ```
 POST /api/auth/login
+POST /api/auth/cambiar-password      ← verifica pwd actual con bcrypt, actualiza hash
+
+GET  /api/dashboard/resumen          ← métricas del día: presentismo + civiles + traslados
+
+GET  /api/actividad?limit=N          ← ADMIN: todo | JEFE: solo lo propio
 
 GET  /api/presentismo/hoy
 GET  /api/presentismo/:dni
@@ -248,19 +274,31 @@ GET  /api/presentismo/metricas?nivel=PRIMARIO&mes=YYYY-MM
 GET  /api/civiles/activos
 GET  /api/civiles/hoy
 GET  /api/civiles/:dni
-PATCH /api/civiles/:id/estado
+PATCH /api/civiles/:id/estado        ← log: CIVIL_CANCELADO
 
 GET  /api/traslados/hoy
 GET  /api/traslados/:dni_interno
-POST /api/traslados
-PATCH /api/traslados/:id/regreso
+POST /api/traslados                  ← log: TRASLADO_NUEVO
+PATCH /api/traslados/:id/regreso     ← log: TRASLADO_REGRESO
 
 GET  /api/personas/:dni
 GET  /api/buscar?q=apellido
 
-POST /api/sync/ejecutar
+POST /api/sync/ejecutar              ← NO funciona en Vercel serverless (proceso background)
 GET  /api/sync/log
 ```
+
+### Activity Log — acciones registradas
+
+| Acción           | Cuándo                              |
+| ---------------- | ----------------------------------- |
+| LOGIN            | Cada login exitoso                  |
+| TRASLADO_NUEVO   | POST /api/traslados                 |
+| TRASLADO_REGRESO | PATCH /api/traslados/:id/regreso    |
+| CIVIL_CANCELADO  | PATCH /api/civiles/:id/estado       |
+| CAMBIO_PASSWORD  | POST /api/auth/cambiar-password     |
+
+> El log es silencioso: si falla, nunca interrumpe la operación principal (catch vacío en `api/logger.js`).
 
 ---
 
@@ -289,7 +327,9 @@ GET  /api/sync/log
 
 - **Supabase** pausa la DB tras 7 días de inactividad → el worker debe incluir un keepalive query diario
 - **Railway free tier** duerme tras inactividad → el worker debe ser un proceso con `node-cron`, no `setInterval` dentro del servidor API
-- Separar worker y API como dos servicios Railway independientes
+- **Vercel** — la API corre serverless; procesos background se matan al terminar el handler. `POST /api/sync/ejecutar` no funciona en producción; la sincronización real es vía GitHub Actions cron
+- **GitHub Actions free tier** — 2000 min/mes; el cron cada 30 min usa ~60 min/mes, sin problema
+- **Railway** — ya no se usa. Trial expiró en Jun 2026. No reconectar.
 
 ---
 
@@ -309,15 +349,21 @@ GET  /api/sync/log
 
 ## 16. Roadmap de Fases
 
-### Fase 1 — Sistema Base *(actual)*
-- [ ] Schema PostgreSQL completo + schema_auth.sql
-- [ ] Worker de sincronización desde Drive (solo lectura)
-- [ ] Normalización de DNI y datos
-- [ ] API REST con auth JWT — endpoints principales
-- [ ] Dashboard móvil: vistas de presentismo, civiles activos, traslados del día
-- [ ] Registro de traslados (salida / regreso / novedad)
-- [ ] Registro de cambios en civiles (cancelación / reemplazo)
-- [ ] PWA con Service Worker
+### Fase 1 — Sistema Base *(en producción — pendiente sync real)*
+- [x] Schema PostgreSQL completo + schema_auth.sql + activity_log
+- [x] Worker de sincronización desde Drive (código completo, bloqueado por service account)
+- [x] Normalización de DNI y datos
+- [x] API REST con auth JWT — todos los endpoints + cambiar-password + dashboard/resumen + actividad
+- [x] Dashboard móvil: Inicio con métricas, presentismo, civiles, traslados, búsqueda
+- [x] Registro de traslados (salida / regreso / novedad)
+- [x] Registro de cambios en civiles (cancelación / reemplazo)
+- [x] PWA con Service Worker (Cache First + Background Sync + offline queue IndexedDB)
+- [x] Log de actividad del sistema
+- [x] Cambio de contraseña para usuarios
+- [x] Deploy en Vercel: https://gau-9.vercel.app
+- [ ] **PENDIENTE BLOQUEANTE:** compartir las 5 planillas con gau9-worker@gau-9-drive.iam.gserviceaccount.com
+- [ ] **PENDIENTE BLOQUEANTE:** crear las 3 cuentas de usuario para los jefes
+- [ ] UX/UI: usar MCP de 21st.dev (magic component builder/inspector) para rediseño más profesional
 
 ### Fase 2 — Vistas Especializadas y Seguimiento GPS Pasivo
 - [ ] Vista de Cursos activos
@@ -350,32 +396,41 @@ GET  /api/sync/log
 - [x] Inicializar `package.json` con dependencias
 - [x] Crear `.env.example`
 
-### Fase 1B — Worker de Sincronización
-- [ ] `worker/normalizar.js` — todas las funciones de normalización
-- [ ] `worker/drive.js` — autenticación service account + lectura xlsx y gsheet
-- [ ] `worker/sync_civiles.js` — primero (más simple, sin dependencias de FC)
-- [ ] `worker/sync_primario.js` — skipeo de filas de totales
-- [ ] `worker/sync_secundario.js`
-- [ ] `worker/sync_trabajadores.js` — manejo de secciones múltiples, fecha en 3 cols
-- [ ] `worker/sync_facultades.js` — F.C. normalizado, columna "Fecha 2"
-- [ ] `worker/index.js` — orquestador con orden correcto + node-cron + keepalive Supabase
+### Fase 1B — Worker de Sincronización ✓ COMPLETA — bloqueada esperando service account
 
-### Fase 1C — API
-- [ ] `api/db.js` — pool pg + manejo de errores de conexión
-- [ ] `api/middleware/auth.js` — JWT middleware
-- [ ] `api/routes/auth.js` — POST /login con bcrypt
-- [ ] `api/routes/presentismo.js`
-- [ ] `api/routes/civiles.js`
-- [ ] `api/routes/traslados.js`
-- [ ] `api/routes/personas.js`
-- [ ] `api/routes/sync.js`
-- [ ] `api/index.js` — Express con CORS configurado para la PWA
+- [x] `worker/normalizar.js` — normalizarDNI, normalizarFC, mapearRol, normalizarTurno
+- [x] `worker/drive.js` — auth service account + leerXlsx + leerSheetCompleto
+- [x] `worker/sync_civiles.js`
+- [x] `worker/sync_primario.js` — skipeo de filas de totales
+- [x] `worker/sync_secundario.js`
+- [x] `worker/sync_trabajadores.js` — secciones múltiples, fecha en 3 cols, typo ASGINADA
+- [x] `worker/sync_facultades.js` — F.C. normalizado, columna "Fecha 2"
+- [x] `worker/index.js` — orquestador + node-cron + keepalive Supabase 06:00
+- [x] `worker/sync-once.js` — entry point GitHub Actions (corre todos y sale con process.exit)
 
-### Fase 1D — PWA Frontend
-- [ ] `dashboard/index.html` — estructura base mobile-first
-- [ ] `dashboard/app.js` — Alpine.js components (presentismo, civiles, traslados)
-- [ ] `dashboard/sw.js` — Service Worker con Cache First + Background Sync
-- [ ] Login screen con JWT
+### Fase 1C — API ✓ COMPLETA
+
+- [x] `api/db.js` — pool pg + manejo de errores de conexión
+- [x] `api/logger.js` — log() silencioso; usa req.usuario (alias de req.user)
+- [x] `api/middleware/auth.js` — JWT middleware; sets req.user Y req.usuario
+- [x] `api/routes/auth.js` — POST /login + POST /cambiar-password
+- [x] `api/routes/dashboard.js` — GET /api/dashboard/resumen
+- [x] `api/routes/actividad.js` — GET /api/actividad (ADMIN vs JEFE)
+- [x] `api/routes/presentismo.js`
+- [x] `api/routes/civiles.js` — con log CIVIL_CANCELADO
+- [x] `api/routes/traslados.js` — con log TRASLADO_NUEVO y TRASLADO_REGRESO
+- [x] `api/routes/personas.js`
+- [x] `api/routes/sync.js`
+- [x] `api/index.js` — Express + helmet + CORS (DASHBOARD_ORIGIN) + todas las rutas
+
+### Fase 1D — PWA Frontend ✓ COMPLETA
+
+- [x] `dashboard/index.html` — 5 vistas + 5 modales, design system institucional
+- [x] `dashboard/app.js` — Alpine.js: login, resumen, presentismo, civiles, traslados, búsqueda, actividad, cambio de contraseña, offline queue
+- [x] `dashboard/sw.js` — Cache First + Background Sync + IndexedDB offline
+- [x] `dashboard/style.css` — design system completo (CSS custom properties, navy + gold)
+- [x] `dashboard/manifest.json` + `dashboard/icons/icon.svg` — PWA instalable Android/iOS
+- [x] Deploy activo: <https://gau-9.vercel.app>
 
 ---
 
@@ -392,7 +447,8 @@ GET  /api/sync/log
     "jsonwebtoken": "^9.x",
     "bcryptjs": "^2.x",
     "dotenv": "^16.x",
-    "cors": "^2.x"
+    "cors": "^2.x",
+    "helmet": "^7.x"
   }
 }
 ```
@@ -406,15 +462,49 @@ GET  /api/sync/log
 | Jun 2026 | DNI como PK universal | Único identificador presente en los tres grupos |
 | Jun 2026 | Node.js + Express (no Python) | Consistencia con JS del Service Worker; menos context switching |
 | Jun 2026 | Alpine.js + Tailwind (no React) | Sin build step; carga rápida en celular; 3 usuarios no justifican SPA compleja |
-| Jun 2026 | Railway para worker como proceso separado | Free tier duerme — worker en cron propio evita fallos silenciosos |
+| Jun 2026 | Railway para worker (original) | Free tier duerme — worker en cron propio evita fallos silenciosos |
+| Jun 2026 | **Vercel + GitHub Actions** (reemplazo Railway) | Railway trial expiró Jun 2026; Vercel sirve API serverless + static; GH Actions hace el cron de sync |
 | Jun 2026 | personal_spb.dni nullable | Planilla Trabajadores Colegio no tiene DNI — PK cambiado a UUID |
 | Jun 2026 | schema_auth.sql separado | El schema original no incluía autenticación |
 | Jun 2026 | Drive solo lectura en Fase 1 y 2 | El sistema debe probar confiabilidad antes de permisos de escritura |
 | Jun 2026 | PWA con caché offline | Jefes usan celulares fuera del área con WiFi |
 | Jun 2026 | Asistente IA en Fase 3 | Datos deben estar limpios y consolidados antes de agregar lenguaje natural |
 | Jun 2026 | GPS Escenario A en Fase 2 | Seguimiento pasivo sin costo; Escenario B (tiempo real) queda como escalabilidad futura |
-| Jun 2026 | Costo cero en Fase 1 y 2 | Free tiers de Supabase, Railway, Vercel; único costo en Fase 3 ($5/mes Anthropic) |
+| Jun 2026 | Costo cero en Fase 1 y 2 | Free tiers de Supabase, Vercel, GitHub Actions; único costo en Fase 3 ($5/mes Anthropic) |
 | Jun 2026 | Flujo de autorización civil es externo | SPB central gestiona la autorización; Coordinación solo recibe resultado final |
+| Jun 2026 | Activity log silencioso | El log nunca interrumpe la operación principal — catch vacío en api/logger.js |
+| Jun 2026 | req.usuario alias en auth middleware | Rutas y logger usan req.usuario; middleware JWT seteaba solo req.user — se agrega alias |
+| Jun 2026 | CSS custom properties (sin Tailwind @apply) | @apply requiere PostCSS; en browser sin build se ignoraba todo y la pantalla quedaba en blanco |
+| Jun 2026 | UX/UI: usar MCP 21st.dev en próxima iteración | El rediseño actual fue hecho inline sin las skills de magic component builder/inspector — debe mejorarse |
+
+---
+
+---
+
+## 20. Estado Actual y Próximos Pasos (26/06/2026)
+
+### Sistema en producción
+
+- URL: <https://gau-9.vercel.app>
+- API serverless en Vercel, DB en Supabase (sa-east-1)
+- GitHub Actions cron configurado, pendiente que se active con las credenciales correctas
+- Usuario ADMIN creado: `admin@gau9.com`
+
+### Bloqueantes para operación real
+
+1. **Compartir planillas Drive** con `gau9-worker@gau-9-drive.iam.gserviceaccount.com`
+   - `soporteescuelau9@gmail.com` debe compartir: Presentismo Primario, Presentismo Secundario, Trabajadores Colegio
+   - `caeunidad9@gmail.com` debe compartir: Ingreso Civiles, Facultades
+2. **Crear las 3 cuentas de los jefes** (script `node scripts/crear_admin.js`)
+3. **Verificar secrets en GitHub Actions**: `DATABASE_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `JWT_SECRET`
+
+### Pendiente de mejora (próxima sesión)
+
+- **UX/UI**: usar los MCP de 21st.dev (`mcp__magic__21st_magic_component_builder`,
+  `mcp__magic__21st_magic_component_inspiration`, `mcp__magic__21st_magic_component_refiner`)
+  para un rediseño de nivel profesional real — no hacerlo inline
+- **Logo**: mostrar al usuario los 4 candidatos de Canva para que elija
+- **Guía de entrega** para los jefes (cómo instalar la PWA, cómo cambiar contraseña)
 
 ---
 
