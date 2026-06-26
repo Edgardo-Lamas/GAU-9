@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e40af">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GAU-9">
+  <title>GAU-9 — Coordinación Académica</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-900 antialiased">
+
+<div x-data="gau9App()" x-init="init()">
+
+  <!-- ── LOGIN ─────────────────────────────────────────────── -->
+  <div x-show="!autenticado" x-cloak class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8">
+      <div class="text-center mb-8">
+        <div class="text-4xl mb-2">🏛️</div>
+        <h1 class="text-xl font-bold text-blue-900">GAU-9</h1>
+        <p class="text-sm text-gray-500 mt-1">Coordinación Académica · Unidad 9 SPB</p>
+      </div>
+
+      <form @submit.prevent="login()">
+        <div class="mb-4">
+          <label class="label">Email</label>
+          <input x-model="loginForm.email" type="email" autocomplete="email"
+            class="input" placeholder="usuario@ejemplo.com" required>
+        </div>
+        <div class="mb-6">
+          <label class="label">Contraseña</label>
+          <input x-model="loginForm.password" type="password" autocomplete="current-password"
+            class="input" placeholder="••••••••" required>
+        </div>
+        <div x-show="loginError" class="mb-4 text-sm text-red-600 text-center" x-text="loginError"></div>
+        <button type="submit" class="btn-primary w-full" :disabled="cargando">
+          <span x-show="!cargando">Ingresar</span>
+          <span x-show="cargando">Verificando…</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── APP PRINCIPAL ──────────────────────────────────────── -->
+  <div x-show="autenticado" x-cloak class="flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-blue-900 text-white px-4 py-3 flex items-center justify-between shadow-md sticky top-0 z-10">
+      <div>
+        <h1 class="font-bold text-base leading-tight">GAU-9</h1>
+        <p class="text-xs text-blue-300" x-text="hoyTexto()"></p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-blue-300" x-text="usuario?.nombre || ''"></span>
+        <button @click="logout()" class="text-blue-300 hover:text-white text-sm">Salir</button>
+      </div>
+    </header>
+
+    <!-- Contenido principal -->
+    <main class="flex-1 overflow-y-auto pb-20">
+
+      <!-- Toast de error global -->
+      <div x-show="errorGlobal" x-transition
+        class="mx-4 mt-4 bg-red-100 border border-red-300 text-red-700 text-sm rounded-lg px-4 py-3 flex justify-between">
+        <span x-text="errorGlobal"></span>
+        <button @click="errorGlobal=''" class="font-bold ml-2">✕</button>
+      </div>
+
+      <!-- ── PRESENTISMO ──────────────────────────────────── -->
+      <div x-show="vistaActual === 'presentismo'">
+        <div class="px-4 pt-4 pb-2 flex gap-2">
+          <button @click="filtroNivel=''" :class="filtroNivel==='' ? 'btn-tab-active' : 'btn-tab'">Todos</button>
+          <button @click="filtroNivel='PRIMARIO'" :class="filtroNivel==='PRIMARIO' ? 'btn-tab-active' : 'btn-tab'">Primario</button>
+          <button @click="filtroNivel='SECUNDARIO'" :class="filtroNivel==='SECUNDARIO' ? 'btn-tab-active' : 'btn-tab'">Secundario</button>
+        </div>
+
+        <div class="px-4 py-2 flex justify-between items-center">
+          <p class="text-sm text-gray-500">
+            <span x-text="presentismoFiltrado().length"></span> registros hoy
+          </p>
+          <button @click="cargarPresentismo()" class="text-blue-700 text-sm font-medium">↻ Actualizar</button>
+        </div>
+
+        <div x-show="cargando && vistaActual==='presentismo'" class="text-center py-10 text-gray-400">Cargando…</div>
+
+        <div class="px-4 space-y-2">
+          <template x-for="r in presentismoFiltrado()" :key="r.id">
+            <div class="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3">
+              <div :class="r.estado === 'P' ? 'badge-presente' : 'badge-ausente'" x-text="r.estado"></div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm truncate" x-text="`${r.apellido_1}, ${r.nombre}`"></p>
+                <p class="text-xs text-gray-400" x-text="`${r.nivel} · ${r.turno || ''} · ${r.curso || ''}`"></p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-gray-400" x-text="r.pabellon ? `Pab. ${r.pabellon}` : ''"></p>
+              </div>
+            </div>
+          </template>
+          <div x-show="!cargando && presentismoFiltrado().length === 0"
+            class="text-center py-10 text-gray-400 text-sm">Sin registros para hoy</div>
+        </div>
+      </div>
+
+      <!-- ── CIVILES ──────────────────────────────────────── -->
+      <div x-show="vistaActual === 'civiles'">
+        <div class="px-4 pt-4 pb-2 flex justify-between items-center">
+          <p class="text-sm text-gray-500">
+            <span x-text="civiles.length"></span> civiles con autorización hoy
+          </p>
+          <button @click="cargarCiviles()" class="text-blue-700 text-sm font-medium">↻ Actualizar</button>
+        </div>
+
+        <div x-show="cargando && vistaActual==='civiles'" class="text-center py-10 text-gray-400">Cargando…</div>
+
+        <div class="px-4 space-y-2">
+          <template x-for="c in civiles" :key="c.id">
+            <div class="bg-white rounded-xl shadow-sm p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-sm" x-text="`${c.apellido_1}, ${c.nombre}`"></p>
+                  <p class="text-xs text-gray-500 mt-0.5" x-text="`${c.rol} · DNI ${c.dni}`"></p>
+                </div>
+                <span class="badge-activo ml-2 shrink-0" x-text="c.destino || 'OTRO'"></span>
+              </div>
+              <p x-show="c.actividad" class="text-xs text-gray-600 mt-2" x-text="c.actividad"></p>
+              <p x-show="c.gdeba_nro" class="text-xs text-gray-400 mt-1" x-text="`GDEBA: ${c.gdeba_nro}`"></p>
+              <div class="flex gap-2 mt-3">
+                <button @click="abrirCancelarCivil(c)"
+                  class="text-xs text-red-600 border border-red-200 rounded-lg px-3 py-1.5">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!cargando && civiles.length === 0"
+            class="text-center py-10 text-gray-400 text-sm">Sin civiles hoy</div>
+        </div>
+      </div>
+
+      <!-- ── TRASLADOS ────────────────────────────────────── -->
+      <div x-show="vistaActual === 'traslados'">
+        <div class="px-4 pt-4 pb-2 flex justify-between items-center">
+          <p class="text-sm text-gray-500">
+            <span x-text="traslados.length"></span> traslados hoy
+          </p>
+          <div class="flex gap-2">
+            <button @click="cargarTraslados()" class="text-blue-700 text-sm font-medium">↻</button>
+            <button @click="abrirNuevoTraslado()" class="btn-sm-primary">+ Nuevo</button>
+          </div>
+        </div>
+
+        <div x-show="cargando && vistaActual==='traslados'" class="text-center py-10 text-gray-400">Cargando…</div>
+
+        <div class="px-4 space-y-2">
+          <template x-for="t in traslados" :key="t.id">
+            <div class="bg-white rounded-xl shadow-sm p-4"
+              :class="t.resultado === 'PENDIENTE' ? 'border-l-4 border-amber-400' : ''">
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-sm truncate" x-text="`${t.apellido_1}, ${t.nombre}`"></p>
+                  <p class="text-xs text-gray-500 mt-0.5" x-text="t.facultad || t.destino || '—'"></p>
+                </div>
+                <span :class="t.resultado === 'PENDIENTE' ? 'badge-pendiente' : 'badge-ok'"
+                  x-text="t.resultado"></span>
+              </div>
+              <div class="flex gap-4 mt-2 text-xs text-gray-400">
+                <span x-show="t.hora_salida" x-text="`Salida: ${t.hora_salida?.slice(0,5)}`"></span>
+                <span x-show="t.hora_regreso" x-text="`Regreso: ${t.hora_regreso?.slice(0,5)}`"></span>
+                <span x-text="t.modalidad === 'CON_GPS' ? '📡 GPS' : '🚗 Sin GPS'"></span>
+              </div>
+              <p x-show="t.ficha_conducta" class="text-xs text-gray-400 mt-1" x-text="`FC: ${t.ficha_conducta}`"></p>
+              <div x-show="t.resultado === 'PENDIENTE'" class="mt-3">
+                <button @click="abrirRegistrarRegreso(t)" class="btn-sm-primary w-full">
+                  Registrar regreso
+                </button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!cargando && traslados.length === 0"
+            class="text-center py-10 text-gray-400 text-sm">Sin traslados hoy</div>
+        </div>
+      </div>
+
+      <!-- ── BÚSQUEDA ─────────────────────────────────────── -->
+      <div x-show="vistaActual === 'buscar'">
+        <div class="px-4 pt-4">
+          <div class="relative">
+            <input x-model="busquedaQ" @input.debounce.400ms="buscar()"
+              type="search" class="input pl-9" placeholder="Apellido, nombre o DNI…">
+            <span class="absolute left-3 top-3 text-gray-400">🔍</span>
+          </div>
+        </div>
+
+        <div class="px-4 mt-3 space-y-2">
+          <template x-for="p in resultadosBusqueda" :key="p.dni">
+            <div class="bg-white rounded-xl shadow-sm p-4" @click="verDetalle(p)" style="cursor:pointer">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="font-medium text-sm" x-text="`${p.apellido_1}, ${p.nombre}`"></p>
+                  <p class="text-xs text-gray-400 mt-0.5" x-text="`DNI ${p.dni} · ${p.tipo}`"></p>
+                </div>
+                <span :class="tipoBadge(p.tipo)" x-text="p.tipo"></span>
+              </div>
+              <div x-show="p.ficha_conducta" class="text-xs text-gray-400 mt-1"
+                x-text="`FC: ${p.ficha_conducta} · Pab. ${p.pabellon || '?'}`"></div>
+            </div>
+          </template>
+          <div x-show="busquedaQ.length > 1 && resultadosBusqueda.length === 0 && !cargando"
+            class="text-center py-10 text-gray-400 text-sm">Sin resultados</div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ── NAV INFERIOR ────────────────────────────────────── -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-10">
+      <button @click="cambiarVista('presentismo')" class="nav-item"
+        :class="vistaActual==='presentismo' ? 'nav-item-active' : ''">
+        <span class="text-xl">📋</span>
+        <span>Presentismo</span>
+      </button>
+      <button @click="cambiarVista('civiles')" class="nav-item"
+        :class="vistaActual==='civiles' ? 'nav-item-active' : ''">
+        <span class="text-xl">👥</span>
+        <span>Civiles</span>
+      </button>
+      <button @click="cambiarVista('traslados')" class="nav-item"
+        :class="vistaActual==='traslados' ? 'nav-item-active' : ''">
+        <span class="text-xl">🚗</span>
+        <span>Traslados</span>
+      </button>
+      <button @click="cambiarVista('buscar')" class="nav-item"
+        :class="vistaActual==='buscar' ? 'nav-item-active' : ''">
+        <span class="text-xl">🔍</span>
+        <span>Buscar</span>
+      </button>
+    </nav>
+
+  </div><!-- /autenticado -->
+
+  <!-- ── MODAL: Nuevo Traslado ───────────────────────────── -->
+  <div x-show="modal === 'nuevoTraslado'" x-cloak
+    class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+    @click.self="modal=null">
+    <div class="bg-white w-full max-w-lg rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <h2 class="font-bold text-lg mb-4">Nuevo traslado</h2>
+      <form @submit.prevent="guardarTraslado()">
+        <div class="space-y-3">
+          <div>
+            <label class="label">DNI del interno *</label>
+            <input x-model="formTraslado.dni_interno" class="input" placeholder="Sin puntos" required>
+          </div>
+          <div>
+            <label class="label">Facultad / destino *</label>
+            <input x-model="formTraslado.facultad" class="input" placeholder="Ej: Humanidades UNLP">
+          </div>
+          <div>
+            <label class="label">Materia</label>
+            <input x-model="formTraslado.materia" class="input" placeholder="Ej: Historia Argentina">
+          </div>
+          <div>
+            <label class="label">Modalidad *</label>
+            <select x-model="formTraslado.modalidad" class="input" required>
+              <option value="">Seleccionar…</option>
+              <option value="CON_GPS">Con GPS (tobillera)</option>
+              <option value="SIN_GPS">Sin GPS (móvil SPB)</option>
+            </select>
+          </div>
+          <div x-show="formTraslado.modalidad === 'SIN_GPS'">
+            <label class="label">DNI del oficial responsable *</label>
+            <input x-model="formTraslado.dni_oficial" class="input" placeholder="Sin puntos">
+          </div>
+          <div>
+            <label class="label">Hora de salida</label>
+            <input x-model="formTraslado.hora_salida" type="time" class="input">
+          </div>
+          <div x-show="formTraslado.modalidad === 'CON_GPS'">
+            <label class="label">Hora pautada de regreso</label>
+            <input x-model="formTraslado.horario_pautado" type="time" class="input">
+          </div>
+          <div>
+            <label class="label">Nro. GDEBA</label>
+            <input x-model="formTraslado.gdeba_nro" class="input">
+          </div>
+          <div>
+            <label class="label">Observaciones</label>
+            <textarea x-model="formTraslado.observaciones" class="input" rows="2"></textarea>
+          </div>
+        </div>
+        <div x-show="formError" class="mt-3 text-sm text-red-600" x-text="formError"></div>
+        <div class="flex gap-2 mt-5">
+          <button type="button" @click="modal=null" class="btn-secondary flex-1">Cancelar</button>
+          <button type="submit" class="btn-primary flex-1" :disabled="cargando">
+            <span x-show="!cargando">Guardar</span>
+            <span x-show="cargando">Guardando…</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Registrar Regreso ────────────────────────── -->
+  <div x-show="modal === 'regreso'" x-cloak
+    class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+    @click.self="modal=null">
+    <div class="bg-white w-full max-w-lg rounded-t-2xl p-6">
+      <h2 class="font-bold text-lg mb-1">Registrar regreso</h2>
+      <p class="text-sm text-gray-500 mb-4" x-text="trasladoSeleccionado ? `${trasladoSeleccionado.apellido_1}, ${trasladoSeleccionado.nombre}` : ''"></p>
+      <form @submit.prevent="guardarRegreso()">
+        <div class="space-y-3">
+          <div>
+            <label class="label">Hora de regreso</label>
+            <input x-model="formRegreso.hora_regreso" type="time" class="input">
+          </div>
+          <div>
+            <label class="label">Resultado *</label>
+            <select x-model="formRegreso.resultado" class="input" required>
+              <option value="">Seleccionar…</option>
+              <option value="REGRESÓ">Regresó sin novedades</option>
+              <option value="NOVEDAD">Con novedad</option>
+            </select>
+          </div>
+          <div>
+            <label class="label" :class="formRegreso.resultado==='NOVEDAD' ? 'text-red-600' : ''">
+              Observaciones <span x-show="formRegreso.resultado==='NOVEDAD'">*</span>
+            </label>
+            <textarea x-model="formRegreso.observaciones" class="input" rows="3"
+              placeholder="Detallar novedades, demoras o incidentes…"></textarea>
+          </div>
+        </div>
+        <div x-show="formError" class="mt-3 text-sm text-red-600" x-text="formError"></div>
+        <div class="flex gap-2 mt-5">
+          <button type="button" @click="modal=null" class="btn-secondary flex-1">Cancelar</button>
+          <button type="submit" class="btn-primary flex-1" :disabled="cargando">
+            <span x-show="!cargando">Confirmar</span>
+            <span x-show="cargando">Guardando…</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Cancelar Civil ───────────────────────────── -->
+  <div x-show="modal === 'cancelarCivil'" x-cloak
+    class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+    @click.self="modal=null">
+    <div class="bg-white w-full max-w-lg rounded-t-2xl p-6">
+      <h2 class="font-bold text-lg mb-1">Cancelar autorización</h2>
+      <p class="text-sm text-gray-500 mb-4" x-text="civilSeleccionado ? `${civilSeleccionado.apellido_1}, ${civilSeleccionado.nombre}` : ''"></p>
+      <form @submit.prevent="guardarCancelacion()">
+        <div class="space-y-3">
+          <div>
+            <label class="label">Estado *</label>
+            <select x-model="formCivil.estado" class="input" required>
+              <option value="">Seleccionar…</option>
+              <option value="CANCELADO">Cancelado</option>
+              <option value="REEMPLAZADO">Reemplazado por otro civil</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Observaciones</label>
+            <textarea x-model="formCivil.observaciones" class="input" rows="2"></textarea>
+          </div>
+        </div>
+        <div x-show="formError" class="mt-3 text-sm text-red-600" x-text="formError"></div>
+        <div class="flex gap-2 mt-5">
+          <button type="button" @click="modal=null" class="btn-secondary flex-1">Volver</button>
+          <button type="submit" class="btn-danger flex-1" :disabled="cargando">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div><!-- /x-data -->
+
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

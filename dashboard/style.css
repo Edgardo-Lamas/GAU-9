@@ -1,0 +1,67 @@
+[x-cloak] { display: none !important; }
+
+/* Inputs */
+.input {
+  @apply w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm
+         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+         bg-white;
+}
+textarea.input { @apply resize-none; }
+
+/* Labels */
+.label { @apply block text-sm font-medium text-gray-700 mb-1; }
+
+/* Buttons */
+.btn-primary {
+  @apply bg-blue-700 text-white rounded-xl px-4 py-2.5 text-sm font-semibold
+         hover:bg-blue-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 rounded-xl px-4 py-2.5 text-sm font-semibold
+         hover:bg-gray-200 active:scale-95 transition-all;
+}
+.btn-danger {
+  @apply bg-red-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold
+         hover:bg-red-700 active:scale-95 transition-all disabled:opacity-50;
+}
+.btn-sm-primary {
+  @apply bg-blue-700 text-white rounded-lg px-3 py-1.5 text-xs font-semibold
+         hover:bg-blue-800 active:scale-95 transition-all;
+}
+
+/* Filter tabs */
+.btn-tab {
+  @apply text-sm px-3 py-1.5 rounded-lg text-gray-600 bg-white border border-gray-200
+         hover:border-blue-400 transition-colors;
+}
+.btn-tab-active {
+  @apply text-sm px-3 py-1.5 rounded-lg text-white bg-blue-700 border border-blue-700;
+}
+
+/* Badges */
+.badge-presente {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+         bg-green-100 text-green-700 shrink-0;
+}
+.badge-ausente {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+         bg-red-100 text-red-700 shrink-0;
+}
+.badge-activo {
+  @apply text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium;
+}
+.badge-pendiente {
+  @apply text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium;
+}
+.badge-ok {
+  @apply text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium;
+}
+
+/* Bottom nav */
+.nav-item {
+  @apply flex-1 flex flex-col items-center justify-center py-2 gap-0.5
+         text-gray-400 text-xs transition-colors;
+}
+.nav-item-active {
+  @apply text-blue-700;
+}
