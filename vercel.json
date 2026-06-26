@@ -4,12 +4,24 @@
     {
       "src": "api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "dashboard/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "dest": "api/index.js"
+    },
+    {
+      "src": "/health",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "dashboard/$1"
     }
   ]
 }
