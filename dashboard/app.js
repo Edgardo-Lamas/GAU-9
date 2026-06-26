@@ -22,6 +22,8 @@ function gau9App() {
 
     // ── Datos
     resumen: null,
+    actividadReciente: [],
+    actividad: [],
     presentismo: [],
     civiles: [],
     traslados: [],
@@ -33,6 +35,8 @@ function gau9App() {
     formTraslado: {},
     formRegreso: {},
     formCivil: {},
+    formPassword: { actual: '', nueva: '', confirmar: '' },
+    passwordOk: false,
     trasladoSeleccionado: null,
     civilSeleccionado: null,
 
@@ -175,7 +179,12 @@ function gau9App() {
     async cargarResumen() {
       this.cargando = true;
       try {
-        this.resumen = await this.apiGet('/api/dashboard/resumen');
+        const [resumen, actividad] = await Promise.all([
+          this.apiGet('/api/dashboard/resumen'),
+          this.apiGet('/api/actividad?limit=5'),
+        ]);
+        this.resumen = resumen;
+        this.actividadReciente = actividad;
       } catch (err) {
         this.errorGlobal = err.message;
       } finally {
@@ -362,6 +371,83 @@ function gau9App() {
         persona.nivel_educativo ? `Nivel: ${persona.nivel_educativo}` : null,
       ].filter(Boolean).join('\n');
       alert(info);
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Actividad
+    // ────────────────────────────────────────────────────────────
+    async abrirActividad() {
+      this.modal = 'actividad';
+      try {
+        this.actividad = await this.apiGet('/api/actividad?limit=100');
+      } catch (err) {
+        this.errorGlobal = err.message;
+      }
+    },
+
+    iconoAccion(accion) {
+      const map = {
+        LOGIN:            '🔐',
+        TRASLADO_NUEVO:   '🚗',
+        TRASLADO_REGRESO: '✅',
+        CIVIL_CANCELADO:  '🚫',
+        CAMBIO_PASSWORD:  '🔑',
+      };
+      return map[accion] || '📝';
+    },
+
+    textoAccion(a) {
+      const map = {
+        LOGIN:            'Ingresó al sistema',
+        TRASLADO_NUEVO:   `Nuevo traslado: ${a.detalle || ''}`,
+        TRASLADO_REGRESO: `Regreso registrado: ${a.detalle || ''}`,
+        CIVIL_CANCELADO:  `Civil cancelado: ${a.detalle || ''}`,
+        CAMBIO_PASSWORD:  'Cambió su contraseña',
+      };
+      return map[a.accion] || a.accion;
+    },
+
+    formatearFecha(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+        + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Cambiar contraseña
+    // ────────────────────────────────────────────────────────────
+    abrirCambioPassword() {
+      this.formPassword = { actual: '', nueva: '', confirmar: '' };
+      this.formError = '';
+      this.passwordOk = false;
+      this.modal = 'cambiarPassword';
+    },
+
+    async guardarPassword() {
+      this.formError = '';
+      this.passwordOk = false;
+      if (this.formPassword.nueva !== this.formPassword.confirmar) {
+        this.formError = 'Las contraseñas nuevas no coinciden';
+        return;
+      }
+      if (this.formPassword.nueva.length < 8) {
+        this.formError = 'La nueva contraseña debe tener al menos 8 caracteres';
+        return;
+      }
+      this.cargando = true;
+      try {
+        await this.apiPost('/api/auth/cambiar-password', {
+          password_actual: this.formPassword.actual,
+          password_nuevo:  this.formPassword.nueva,
+        });
+        this.passwordOk = true;
+        this.formPassword = { actual: '', nueva: '', confirmar: '' };
+        setTimeout(() => { this.modal = null; this.passwordOk = false; }, 2000);
+      } catch (err) {
+        this.formError = err.message;
+      } finally {
+        this.cargando = false;
+      }
     },
 
     // ────────────────────────────────────────────────────────────

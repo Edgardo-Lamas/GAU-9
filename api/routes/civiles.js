@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const db     = require('../db');
 const { auth } = require('../middleware/auth');
+const { log }  = require('../logger');
 
 const BASE_SELECT = `
   SELECT
@@ -94,6 +95,8 @@ router.patch('/:id/estado', auth, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Registro no encontrado' });
     }
+    await log(req, 'CIVIL_CANCELADO',
+      `ID ${req.params.id} → ${estado}${observaciones ? ': ' + observaciones : ''}`);
     res.json(result.rows[0]);
   } catch (err) {
     console.error('[civiles] PATCH estado:', err.message);

@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const db     = require('../db');
 const { auth } = require('../middleware/auth');
+const { log }  = require('../logger');
 
 const BASE_SELECT = `
   SELECT
@@ -93,6 +94,8 @@ router.post('/', auth, async (req, res) => {
       horario_pautado || null, observaciones || null,
     ]);
 
+    await log(req, 'TRASLADO_NUEVO',
+      `DNI ${dni_interno} → ${facultad || destino} (${modalidad})`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('[traslados] POST:', err.message);
@@ -126,6 +129,8 @@ router.patch('/:id/regreso', auth, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Traslado no encontrado o ya tiene resultado registrado' });
     }
+    await log(req, 'TRASLADO_REGRESO',
+      `ID ${req.params.id} → ${resultado}${observaciones ? ': ' + observaciones : ''}`);
     res.json(result.rows[0]);
   } catch (err) {
     console.error('[traslados] PATCH regreso:', err.message);

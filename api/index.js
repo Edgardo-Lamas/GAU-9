@@ -6,6 +6,7 @@ const cors    = require('cors');
 
 const authRoutes        = require('./routes/auth');
 const dashboardRoutes   = require('./routes/dashboard');
+const actividadRoutes   = require('./routes/actividad');
 const presentismoRoutes = require('./routes/presentismo');
 const civilesRoutes     = require('./routes/civiles');
 const trasladosRoutes   = require('./routes/traslados');
@@ -30,6 +31,7 @@ app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString()
 
 app.use('/api/auth',        authRoutes);
 app.use('/api/dashboard',   dashboardRoutes);
+app.use('/api/actividad',   actividadRoutes);
 app.use('/api/presentismo', presentismoRoutes);
 app.use('/api/civiles',     civilesRoutes);
 app.use('/api/traslados',   trasladosRoutes);
