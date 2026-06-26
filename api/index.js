@@ -46,8 +46,11 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: 'Error interno del servidor' });
 });
 
-app.listen(PORT, () => {
-  console.log(`[api] GAU-9 escuchando en puerto ${PORT} (${process.env.NODE_ENV || 'development'})`);
-});
+// En Vercel el servidor lo levanta la plataforma — solo escuchamos en dev/local
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`[api] GAU-9 escuchando en puerto ${PORT} (${process.env.NODE_ENV || 'development'})`);
+  });
+}
 
 module.exports = app;
