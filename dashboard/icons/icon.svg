@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="80" fill="#1e40af"/>
-  <rect x="40" y="40" width="432" height="432" rx="60" fill="#1d4ed8"/>
-  <!-- Columnas del edificio -->
-  <rect x="100" y="200" width="40" height="160" rx="4" fill="#ffffff"/>
-  <rect x="180" y="180" width="40" height="180" rx="4" fill="#ffffff"/>
-  <rect x="260" y="180" width="40" height="180" rx="4" fill="#ffffff"/>
-  <rect x="340" y="200" width="40" height="160" rx="4" fill="#ffffff"/>
+  <rect width="512" height="512" rx="80" fill="#0f1f4a"/>
+  <rect x="40" y="40" width="432" height="432" rx="60" fill="#162a5e"/>
+  <!-- Frontón -->
+  <polygon points="256,100 80,210 432,210" fill="#c9a227"/>
+  <!-- Columnas -->
+  <rect x="110" y="210" width="38" height="160" rx="4" fill="#ffffff"/>
+  <rect x="187" y="210" width="38" height="160" rx="4" fill="#ffffff"/>
+  <rect x="264" y="210" width="38" height="160" rx="4" fill="#ffffff"/>
+  <rect x="341" y="210" width="38" height="160" rx="4" fill="#ffffff"/>
   <!-- Base -->
-  <rect x="80" y="360" width="320" height="24" rx="4" fill="#ffffff"/>
-  <!-- Techo / frontón -->
-  <polygon points="256,100 80,200 432,200" fill="#ffffff"/>
+  <rect x="80" y="370" width="352" height="22" rx="4" fill="#ffffff"/>
   <!-- Texto GAU-9 -->
   <text x="256" y="450" text-anchor="middle" font-family="Arial Black, sans-serif"
-        font-size="52" font-weight="900" fill="#bfdbfe" letter-spacing="2">GAU-9</text>
+        font-size="48" font-weight="900" fill="#c9a227" letter-spacing="3">GAU-9</text>
 </svg>
