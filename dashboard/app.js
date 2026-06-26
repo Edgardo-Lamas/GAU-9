@@ -14,13 +14,14 @@ function gau9App() {
     loginError: '',
 
     // ── UI
-    vistaActual: 'presentismo',
+    vistaActual: 'inicio',
     cargando: false,
     errorGlobal: '',
     modal: null,
     formError: '',
 
     // ── Datos
+    resumen: null,
     presentismo: [],
     civiles: [],
     traslados: [],
@@ -162,9 +163,31 @@ function gau9App() {
     },
 
     cargarVista() {
+      if (this.vistaActual === 'inicio')      this.cargarResumen();
       if (this.vistaActual === 'presentismo') this.cargarPresentismo();
       if (this.vistaActual === 'civiles')     this.cargarCiviles();
       if (this.vistaActual === 'traslados')   this.cargarTraslados();
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Resumen / Inicio
+    // ────────────────────────────────────────────────────────────
+    async cargarResumen() {
+      this.cargando = true;
+      try {
+        this.resumen = await this.apiGet('/api/dashboard/resumen');
+      } catch (err) {
+        this.errorGlobal = err.message;
+      } finally {
+        this.cargando = false;
+      }
+    },
+
+    horaActualizacion() {
+      if (!this.resumen?.generado_en) return '';
+      return new Date(this.resumen.generado_en).toLocaleTimeString('es-AR', {
+        hour: '2-digit', minute: '2-digit',
+      });
     },
 
     // ────────────────────────────────────────────────────────────
