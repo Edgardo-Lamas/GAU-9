@@ -3,17 +3,24 @@
   "short_name": "GAU-9",
   "description": "Sistema de gestión operativa penitenciaria y educativa. Unidad 9 SPB.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f3f4f6",
+  "background_color": "#1e40af",
   "theme_color": "#1e40af",
   "lang": "es-AR",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231e40af' rx='20'/><text y='.9em' font-size='80' x='10'>🏛️</text></svg>",
+      "src": "/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

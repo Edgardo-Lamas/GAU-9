@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
   '/app.js',
   '/style.css',
   '/manifest.json',
+  '/icons/icon.svg',
 ];
 
 // Rutas de API con Cache First (datos del día, cambian con sync periódico)
