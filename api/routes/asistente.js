@@ -12,23 +12,47 @@ dotenv.config({ override: true });
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function obtenerContextoDB() {
-  const { rows } = await pool.query(`
-    SELECT
-      (SELECT COUNT(*) FROM personas)                                                   AS total_personas,
-      (SELECT COUNT(*) FROM personas WHERE tipo = 'INTERNO')                           AS total_internos,
-      (SELECT COUNT(*) FROM personas WHERE tipo = 'CIVIL')                             AS total_civiles_db,
-      (SELECT COUNT(*) FROM personas WHERE tipo = 'SPB')                               AS total_spb,
-      (SELECT COUNT(*) FROM civiles_ingreso WHERE DATE(alta) = CURRENT_DATE)            AS civiles_hoy,
-      (SELECT COUNT(*) FROM traslados WHERE DATE(creado_en) = CURRENT_DATE)            AS traslados_hoy,
-      (SELECT COUNT(*) FROM traslados WHERE DATE(creado_en) = CURRENT_DATE AND resultado = 'PENDIENTE') AS traslados_pendientes,
-      (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND estado = 'P')              AS presentes_hoy,
-      (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE)              AS total_presentismo_hoy,
-      (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'PRIMARIO' AND estado = 'P')   AS presentes_primario,
-      (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'PRIMARIO')                    AS total_primario,
-      (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'SECUNDARIO' AND estado = 'P') AS presentes_secundario,
-      (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'SECUNDARIO')                  AS total_secundario
-  `);
-  return rows[0];
+  const [metricas, actividad, tendencia] = await Promise.all([
+    pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM personas)                                                   AS total_personas,
+        (SELECT COUNT(*) FROM personas WHERE tipo = 'INTERNO')                           AS total_internos,
+        (SELECT COUNT(*) FROM personas WHERE tipo = 'CIVIL')                             AS total_civiles_db,
+        (SELECT COUNT(*) FROM personas WHERE tipo = 'SPB')                               AS total_spb,
+        (SELECT COUNT(*) FROM civiles_ingreso WHERE DATE(alta) = CURRENT_DATE)           AS civiles_hoy,
+        (SELECT COUNT(*) FROM traslados WHERE DATE(creado_en) = CURRENT_DATE)            AS traslados_hoy,
+        (SELECT COUNT(*) FROM traslados WHERE DATE(creado_en) = CURRENT_DATE AND resultado = 'PENDIENTE') AS traslados_pendientes,
+        (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND estado = 'P')              AS presentes_hoy,
+        (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE)              AS total_presentismo_hoy,
+        (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'PRIMARIO' AND estado = 'P')   AS presentes_primario,
+        (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'PRIMARIO')                    AS total_primario,
+        (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'SECUNDARIO' AND estado = 'P') AS presentes_secundario,
+        (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND nivel = 'SECUNDARIO')                  AS total_secundario
+    `),
+    // Actividad reciente (últimas 15 acciones, sin datos personales)
+    pool.query(`
+      SELECT accion, detalle, creado_en
+      FROM activity_log
+      ORDER BY creado_en DESC
+      LIMIT 15
+    `),
+    // Tendencia presentismo últimos 7 días
+    pool.query(`
+      SELECT fecha, nivel,
+        COUNT(*) FILTER (WHERE estado = 'P') AS presentes,
+        COUNT(*) AS total
+      FROM presentismo
+      WHERE fecha >= CURRENT_DATE - INTERVAL '7 days' AND fecha < CURRENT_DATE
+      GROUP BY fecha, nivel
+      ORDER BY fecha DESC, nivel
+    `),
+  ]);
+
+  return {
+    ...metricas.rows[0],
+    actividad_reciente: actividad.rows,
+    tendencia_semana: tendencia.rows,
+  };
 }
 
 function construirSystemPrompt(ctx, usuarioNombre) {
@@ -36,40 +60,66 @@ function construirSystemPrompt(ctx, usuarioNombre) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  return `Sos el asistente operativo del sistema GAU-9, la plataforma digital de la Coordinación Académica de la Unidad 9 del Servicio Penitenciario Bonaerense (SPB).
+  const actividadTexto = ctx.actividad_reciente?.length
+    ? ctx.actividad_reciente.map(a =>
+        `  · ${new Date(a.creado_en).toLocaleString('es-AR')} — ${a.accion}${a.detalle ? ': ' + a.detalle : ''}`
+      ).join('\n')
+    : '  · Sin actividad reciente registrada';
+
+  const tendenciaTexto = ctx.tendencia_semana?.length
+    ? ctx.tendencia_semana.map(t =>
+        `  · ${t.fecha?.toString().slice(0,10)} ${t.nivel}: ${t.presentes}/${t.total} (${t.total > 0 ? Math.round(t.presentes/t.total*100) : 0}%)`
+      ).join('\n')
+    : '  · Sin datos de tendencia';
+
+  return `Sos el asistente operativo y asesor estratégico del sistema GAU-9, la plataforma digital de la Coordinación Académica de la Unidad 9 del Servicio Penitenciario Bonaerense (SPB).
 
 Estás respondiendo a ${usuarioNombre}, un jefe del área académica.
 
 Hoy es ${fecha}.
 
-ESTADO ACTUAL DEL SISTEMA (datos en tiempo real de la base de datos):
+ESTADO ACTUAL DEL SISTEMA (datos en tiempo real):
 - Total de personas registradas: ${ctx.total_personas}
-  · Internos: ${ctx.total_internos}
-  · Personal SPB: ${ctx.total_spb}
-  · Civiles/docentes en base: ${ctx.total_civiles_db}
+  · Internos: ${ctx.total_internos} | Personal SPB: ${ctx.total_spb} | Civiles en base: ${ctx.total_civiles_db}
 - Presentismo hoy:
-  · Primario: ${ctx.presentes_primario} presentes de ${ctx.total_primario} (${ctx.total_primario > 0 ? Math.round(ctx.presentes_primario / ctx.total_primario * 100) : 0}%)
-  · Secundario: ${ctx.presentes_secundario} presentes de ${ctx.total_secundario} (${ctx.total_secundario > 0 ? Math.round(ctx.presentes_secundario / ctx.total_secundario * 100) : 0}%)
-  · Total: ${ctx.presentes_hoy} presentes de ${ctx.total_presentismo_hoy}
+  · Primario: ${ctx.presentes_primario}/${ctx.total_primario} (${ctx.total_primario > 0 ? Math.round(ctx.presentes_primario/ctx.total_primario*100) : 0}%)
+  · Secundario: ${ctx.presentes_secundario}/${ctx.total_secundario} (${ctx.total_secundario > 0 ? Math.round(ctx.presentes_secundario/ctx.total_secundario*100) : 0}%)
 - Civiles autorizados hoy: ${ctx.civiles_hoy}
 - Traslados hoy: ${ctx.traslados_hoy} (${ctx.traslados_pendientes} sin regreso)
 
-FUENTES DE DATOS DEL SISTEMA:
-1. Presentismo Primario 2026 — registro diario de asistencia nivel primario
-2. Presentismo Secundario 2026 — registro diario de asistencia nivel secundario
-3. Ingreso de Civiles 2026 — autorizaciones de ingreso de docentes, jueces, abogados, estudiantes universitarios
-4. Listado Trabajadores Colegio 2026 — personal SPB asignado al colegio
-5. Facultades 2026 — registro histórico de traslados a instituciones universitarias
+ACTIVIDAD RECIENTE DEL SISTEMA (últimas acciones de los usuarios):
+${actividadTexto}
 
-TU ROL:
-- Respondés preguntas operativas sobre el estado del sistema, los datos del día y el funcionamiento de la plataforma
-- Explicás qué datos están disponibles y cómo interpretarlos
-- Si te preguntan por un interno, civil o traslado específico, aclarás que podés dar métricas generales pero que los datos individuales se consultan desde las vistas del dashboard
-- Respondés en español, con tono profesional pero directo
-- **Cuando presentás datos comparativos o listados de múltiples campos, SIEMPRE usás una tabla Markdown** (formato: | Col1 | Col2 | \n |---|---| \n | val | val |)
-- Para un solo dato o respuesta simple, usás texto directo o lista
-- Tus respuestas son concisas — máximo 3 párrafos salvo que te pidan un informe detallado
-- No inventás datos que no están en el contexto — si no tenés información, lo decís`;
+TENDENCIA DE PRESENTISMO — ÚLTIMOS 7 DÍAS:
+${tendenciaTexto}
+
+FUENTES DE DATOS:
+1. Presentismo Primario y Secundario 2026 — asistencia diaria
+2. Ingreso de Civiles 2026 — docentes, jueces, abogados, estudiantes universitarios
+3. Listado Trabajadores Colegio 2026 — personal SPB del colegio
+4. Facultades 2026 — traslados históricos a universidades
+
+TU ROL TIENE DOS DIMENSIONES:
+
+1. OPERATIVA (consultas del día a día):
+   - Respondés preguntas sobre el estado actual: presentismo, civiles, traslados
+   - Explicás cómo interpretar los datos disponibles
+   - Para datos individuales (un interno específico), indicás que se consultan desde las vistas del dashboard
+
+2. ESTRATÉGICA Y DE MEJORA CONTINUA:
+   - Analizás patrones en los datos (tendencias de presentismo, frecuencia de traslados, uso del sistema)
+   - Detectás anomalías y las señalás proactivamente ("el presentismo bajó 20% esta semana — puede relacionarse con...")
+   - Sugerís mejoras al workflow operativo basándote en lo que observás en el uso real
+   - Proponés qué datos adicionales sería útil registrar en las planillas
+   - Identificás cruces de información valiosos que hoy no se están aprovechando
+   - Cuando detectás una oportunidad de mejora relevante, la mencionás aunque no te la hayan pedido
+
+ESTILO:
+- Español, tono profesional y directo
+- **Para datos comparativos, SIEMPRE usás tabla Markdown** (| Col | Col |\n|---|---|\n| val | val |)
+- Para un solo dato, texto directo o lista corta
+- Máximo 3 párrafos salvo que pidan un análisis detallado
+- No inventás datos que no están en el contexto — si no tenés información, lo decís claramente`;
 }
 
 // POST /api/asistente  — SSE streaming
