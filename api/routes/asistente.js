@@ -6,6 +6,9 @@ const { auth } = require('../middleware/auth');
 const pool     = require('../db');
 
 const router = express.Router();
+const dotenv = require('dotenv');
+dotenv.config({ override: true });
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function obtenerContextoDB() {

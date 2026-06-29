@@ -54,7 +54,7 @@ async function procesarHoja(filas, stats) {
   const headers = filas[headerIdx];
 
   const cols = {
-    fecha:      colIdx(headers, ['fecha2', 'fecha']),
+    fecha:      colIdx(headers, ['dia', 'fecha2', 'fecha']),
     fc:         colIdx(headers, ['fcn', 'fichaconducta', 'fc', 'nroficha']),
     nombre:     colIdx(headers, ['apellidonombre', 'apellidoynombre', 'nombreyapellido', 'apellido,nombre', 'nombre']),
     facultad:   colIdx(headers, ['facultad', 'universidad', 'institucion', 'establecimiento']),
@@ -68,6 +68,8 @@ async function procesarHoja(filas, stats) {
     observaciones: colIdx(headers, ['observaciones', 'obs', 'notas']),
   };
 
+  let ultimaFechaStr = null;
+
   for (let i = headerIdx + 1; i < filas.length; i++) {
     const fila = filas[i];
     if (fila.every(c => !c || String(c).trim() === '')) continue;
@@ -76,9 +78,15 @@ async function procesarHoja(filas, stats) {
 
     const fcRaw = limpiar(fila, cols.fc);
     const fc = normalizarFC(fcRaw);
-    if (!fc) continue;
+    if (!fc || !/^\d+$/.test(fc)) continue; // descartar FCs no numéricas (encabezados)
 
-    const fechaStr = formatearFecha(parsearFecha(limpiar(fila, cols.fecha)));
+    // Fecha: usar la de la fila o la última conocida (carry-forward)
+    const fechaRaw = limpiar(fila, cols.fecha);
+    if (fechaRaw) {
+      const parsed = formatearFecha(parsearFecha(fechaRaw));
+      if (parsed) ultimaFechaStr = parsed;
+    }
+    const fechaStr = ultimaFechaStr;
     if (!fechaStr) continue;
 
     try {
@@ -88,14 +96,26 @@ async function procesarHoja(filas, stats) {
         [fc]
       );
 
+      let dniInterno;
       if (interno.rows.length === 0) {
-        // FC no encontrada: podría ser un interno aún no sincronizado — registrar y continuar
-        stats.errores++;
-        stats.detalle_errores.push(`Fila ${i + 1}: FC ${fc} no encontrada en internos_detalle`);
-        continue;
+        // FC no en DB → crear persona placeholder (solo va a Facultades, sin DNI real)
+        const dniPlaceholder = `FC-${fc}`;
+        const nombreCompleto = limpiar(fila, cols.nombre) || 'DESCONOCIDO';
+        const { apellido_1, apellido_2, nombre } = splitApellidoNombre(nombreCompleto);
+        await db.query(`
+          INSERT INTO personas (dni, tipo, nombre, apellido_1, apellido_2)
+          VALUES ($1, 'INTERNO', $2, $3, $4)
+          ON CONFLICT (dni) DO NOTHING
+        `, [dniPlaceholder, nombre, apellido_1, apellido_2]);
+        await db.query(`
+          INSERT INTO internos_detalle (dni, ficha_conducta)
+          VALUES ($1, $2)
+          ON CONFLICT (dni) DO NOTHING
+        `, [dniPlaceholder, fc]);
+        dniInterno = dniPlaceholder;
+      } else {
+        dniInterno = interno.rows[0].dni;
       }
-
-      const dniInterno = interno.rows[0].dni;
       const modalidad = mapearModalidad(limpiar(fila, cols.modalidad));
       const facultad = limpiar(fila, cols.facultad);
 
