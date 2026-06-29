@@ -31,6 +31,10 @@ function gau9App() {
     busquedaQ: '',
     filtroNivel: '',
     filtroBusqueda: '',
+    cursos: [],
+    alumnos: [],
+    cursoExpandido: null,
+    cargandoAlumnos: false,
 
     // ── Forms modales
     formTraslado: {},
@@ -191,6 +195,7 @@ function gau9App() {
       if (this.vistaActual === 'presentismo') this.cargarPresentismo();
       if (this.vistaActual === 'civiles')     this.cargarCiviles();
       if (this.vistaActual === 'traslados')   this.cargarTraslados();
+      if (this.vistaActual === 'cursos')      this.cargarCursos();
     },
 
     // ────────────────────────────────────────────────────────────
@@ -365,6 +370,50 @@ function gau9App() {
         this.formError = err.message;
       } finally {
         this.cargando = false;
+      }
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Cursos
+    // ────────────────────────────────────────────────────────────
+    async cargarCursos() {
+      this.cargando = true;
+      this.cursoExpandido = null;
+      this.alumnos = [];
+      try {
+        this.cursos = await this.apiGet('/api/cursos');
+      } catch (err) {
+        this.errorGlobal = err.message;
+      } finally {
+        this.cargando = false;
+      }
+    },
+
+    async toggleAlumnos(cursoId) {
+      if (this.cursoExpandido === cursoId) {
+        this.cursoExpandido = null;
+        this.alumnos = [];
+        return;
+      }
+      this.cursoExpandido = cursoId;
+      this.alumnos = [];
+      this.cargandoAlumnos = true;
+      try {
+        this.alumnos = await this.apiGet(`/api/cursos/${cursoId}/alumnos`);
+      } catch (err) {
+        this.errorGlobal = err.message;
+      } finally {
+        this.cargandoAlumnos = false;
+      }
+    },
+
+    async cambiarEstadoAlumno(alumno) {
+      try {
+        await this.apiPatch(`/api/cursos/inscripciones/${alumno.id}/estado`, {
+          estado: alumno.estado,
+        });
+      } catch (err) {
+        this.errorGlobal = `Error al actualizar estado: ${err.message}`;
       }
     },
 

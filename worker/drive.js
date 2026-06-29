@@ -17,6 +17,8 @@ const DRIVE_IDS = {
   CIVILES:                '1ycIp1bFIyNVi-UxqoAB86ok4hdMDMWWSJ0UWXYj31lo',
   TRABAJADORES:           '1Ypz1osYWJp9yVO1FSJZD7tFG82jFVTU7',
   FACULTADES:             '1jNZ7bSOAeny-8TNkNYj0c70EI19FVY4rGck2cgRhRg8',
+  // Completar con el ID del Google Sheet "Cursos 2026" una vez creado por el coordinador
+  CURSOS:                 process.env.DRIVE_ID_CURSOS || null,
 };
 
 function obtenerAuth() {

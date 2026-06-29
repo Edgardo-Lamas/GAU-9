@@ -11,6 +11,7 @@ const { syncPrimario }     = require('./sync_primario');
 const { syncSecundario }   = require('./sync_secundario');
 const { syncTrabajadores } = require('./sync_trabajadores');
 const { syncFacultades }   = require('./sync_facultades');
+const { syncCursos }       = require('./sync_cursos');
 
 async function registrarLog(stats) {
   try {
@@ -40,6 +41,7 @@ async function main() {
     { nombre: 'Secundario',   fn: syncSecundario },
     { nombre: 'Trabajadores', fn: syncTrabajadores },
     { nombre: 'Facultades',   fn: syncFacultades },
+    { nombre: 'Cursos',       fn: syncCursos },
   ];
 
   let exitCode = 0;

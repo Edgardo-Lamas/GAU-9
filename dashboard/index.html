@@ -447,6 +447,109 @@
         </div>
       </div>
 
+      <!-- ── CURSOS ──────────────────────────────────────────── -->
+      <div x-show="vistaActual === 'cursos'">
+        <div class="page-bar">
+          <span class="page-count">
+            <span x-text="cursos.length"></span> cursos activos
+          </span>
+          <button @click="cargarCursos()" class="refresh-btn">↻ Actualizar</button>
+        </div>
+
+        <div x-show="cargando && vistaActual==='cursos'" class="loading-spinner">Cargando…</div>
+
+        <div class="px-4 space-y-3">
+          <template x-for="c in cursos" :key="c.id">
+            <div class="list-card">
+              <div class="list-card-inner list-card-navy">
+
+                <!-- Encabezado -->
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1 min-w-0">
+                    <p class="list-card-name" x-text="c.nombre"></p>
+                    <p x-show="c.docente_apellido" class="list-card-meta"
+                      x-text="`Doc. ${c.docente_apellido}, ${c.docente_nombre}`"></p>
+                    <p x-show="c.fecha_inicio" class="text-xs mt-1" style="color: var(--slate-500)"
+                      x-text="`${fmtFechaSolo(c.fecha_inicio)} → ${c.fecha_fin ? fmtFechaSolo(c.fecha_fin) : 'en curso'}`"></p>
+                  </div>
+                  <span class="badge-activo shrink-0" x-text="c.destino || 'OTRO'"></span>
+                </div>
+
+                <!-- Métricas -->
+                <div class="grid grid-cols-4 gap-2 mt-3 pt-2.5" style="border-top: 1px solid var(--slate-100)">
+                  <div class="text-center">
+                    <div class="text-lg font-bold" style="color: var(--navy-700)" x-text="c.total_alumnos"></div>
+                    <div class="text-xs" style="color: var(--slate-400)">total</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-lg font-bold" style="color: var(--slate-600)" x-text="c.cursando"></div>
+                    <div class="text-xs" style="color: var(--slate-400)">cursando</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-lg font-bold" style="color: #16a34a" x-text="c.aprobados"></div>
+                    <div class="text-xs" style="color: var(--slate-400)">aprobados</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-lg font-bold" style="color: var(--red-600)" x-text="c.desaprobados"></div>
+                    <div class="text-xs" style="color: var(--slate-400)">desapr.</div>
+                  </div>
+                </div>
+
+                <!-- Botón ver alumnos -->
+                <div class="mt-2.5">
+                  <button @click="toggleAlumnos(c.id)"
+                    class="text-xs font-semibold px-3 py-1.5 rounded-lg w-full transition-colors"
+                    style="color: var(--navy-700); border: 1px solid var(--navy-200); background: var(--navy-50)">
+                    <span x-text="cursoExpandido === c.id ? '▲ Ocultar alumnos' : '▼ Ver alumnos'"></span>
+                  </button>
+                </div>
+
+                <!-- Lista de alumnos (expandible) -->
+                <div x-show="cursoExpandido === c.id" class="mt-3 space-y-1.5">
+                  <div x-show="cargandoAlumnos" class="text-xs text-center py-2" style="color: var(--slate-400)">
+                    Cargando alumnos…
+                  </div>
+                  <template x-for="a in alumnos" :key="a.id">
+                    <div class="flex items-center justify-between gap-2 py-2 px-3 rounded-lg"
+                      style="background: var(--slate-50); border: 1px solid var(--slate-100)">
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold truncate" style="color: var(--navy-800)"
+                          x-text="a.apellido_1 ? `${a.apellido_1}, ${a.nombre}` : `F.C. ${a.ficha_conducta}`"></p>
+                        <p class="text-xs" style="color: var(--slate-400)" x-text="`F.C. ${a.ficha_conducta}`"></p>
+                      </div>
+                      <select x-model="a.estado" @change="cambiarEstadoAlumno(a)"
+                        class="text-xs rounded-lg px-2 py-1 font-semibold border"
+                        :style="a.estado === 'Aprobado'
+                          ? 'color:#16a34a;border-color:#bbf7d0;background:#f0fdf4'
+                          : a.estado === 'Desaprobado'
+                            ? 'color:var(--red-600);border-color:rgb(254,202,202);background:var(--red-50)'
+                            : 'color:var(--navy-700);border-color:var(--navy-200);background:var(--navy-50)'">
+                        <option>Cursando</option>
+                        <option>Aprobado</option>
+                        <option>Desaprobado</option>
+                      </select>
+                    </div>
+                  </template>
+                  <div x-show="!cargandoAlumnos && alumnos.length === 0"
+                    class="text-xs text-center py-3" style="color: var(--slate-400)">
+                    Sin alumnos registrados aún
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </template>
+
+          <div x-show="!cargando && cursos.length === 0" class="empty-state">
+            <div class="empty-state-icon">📚</div>
+            <div class="empty-state-text">Sin cursos activos</div>
+            <p class="text-xs mt-2" style="color: var(--slate-400)">
+              Los cursos se sincronizan desde la planilla "Cursos 2026" en Drive
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- ── BÚSQUEDA ─────────────────────────────────────────── -->
       <div x-show="vistaActual === 'buscar'">
         <div class="px-4 pt-4 pb-2">
@@ -502,6 +605,10 @@
       <button @click="cambiarVista('traslados')" class="nav-item"
         :class="vistaActual==='traslados' ? 'nav-item-active' : ''">
         <span class="nav-icon">🚗</span><span>Traslados</span>
+      </button>
+      <button @click="cambiarVista('cursos')" class="nav-item"
+        :class="vistaActual==='cursos' ? 'nav-item-active' : ''">
+        <span class="nav-icon">📚</span><span>Cursos</span>
       </button>
       <button @click="cambiarVista('buscar')" class="nav-item"
         :class="vistaActual==='buscar' ? 'nav-item-active' : ''">

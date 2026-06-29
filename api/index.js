@@ -15,6 +15,7 @@ const trasladosRoutes   = require('./routes/traslados');
 const personasRoutes    = require('./routes/personas');
 const syncRoutes        = require('./routes/sync');
 const asistenteRoutes   = require('./routes/asistente');
+const cursosRoutes      = require('./routes/cursos');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -43,6 +44,7 @@ app.use('/api/buscar',      personasRoutes);   // GET /api/buscar?q=texto
 app.use('/api/personas',    personasRoutes);   // GET /api/personas/:dni
 app.use('/api/sync',        syncRoutes);
 app.use('/api/asistente',   asistenteRoutes);
+app.use('/api/cursos',      cursosRoutes);
 
 // Dashboard estático (solo en dev local — en Vercel lo sirve la plataforma)
 if (process.env.NODE_ENV !== 'production') {
