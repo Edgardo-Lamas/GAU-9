@@ -18,7 +18,7 @@ async function obtenerContextoDB() {
       (SELECT COUNT(*) FROM personas WHERE tipo = 'INTERNO')                           AS total_internos,
       (SELECT COUNT(*) FROM personas WHERE tipo = 'CIVIL')                             AS total_civiles_db,
       (SELECT COUNT(*) FROM personas WHERE tipo = 'SPB')                               AS total_spb,
-      (SELECT COUNT(*) FROM civiles_ingreso WHERE DATE(fecha_ingreso) = CURRENT_DATE)  AS civiles_hoy,
+      (SELECT COUNT(*) FROM civiles_ingreso WHERE DATE(alta) = CURRENT_DATE)            AS civiles_hoy,
       (SELECT COUNT(*) FROM traslados WHERE DATE(creado_en) = CURRENT_DATE)            AS traslados_hoy,
       (SELECT COUNT(*) FROM traslados WHERE DATE(creado_en) = CURRENT_DATE AND resultado = 'PENDIENTE') AS traslados_pendientes,
       (SELECT COUNT(*) FROM presentismo WHERE DATE(fecha) = CURRENT_DATE AND estado = 'P')              AS presentes_hoy,
