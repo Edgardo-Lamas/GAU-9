@@ -200,7 +200,7 @@ function gau9App() {
       try {
         const [resumen, actividad] = await Promise.all([
           this.apiGet('/api/dashboard/resumen'),
-          this.apiGet('/api/actividad?limit=5'),
+          this.apiGet('/api/actividad?limit=3'),
         ]);
         this.resumen = resumen;
         this.actividadReciente = actividad;
@@ -658,14 +658,56 @@ function gau9App() {
     },
 
     renderMarkdown(texto) {
-      // Renderizado mínimo: negrita, listas, saltos de línea
-      return texto
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-        .replace(/\n/g, '<br>');
+      const esc    = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const inline = s => s.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>');
+      const isSep  = l => /^\|[\s\-:|]+\|$/.test(l.trim());
+
+      const lines = texto.split('\n');
+      let html = '';
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+
+        // Tabla Markdown
+        if (line.trim().startsWith('|')) {
+          const tLines = [];
+          while (i < lines.length && lines[i].trim().startsWith('|')) {
+            tLines.push(lines[i]); i++;
+          }
+          const dataRows = tLines.filter(l => !isSep(l));
+          if (dataRows.length >= 1) {
+            const header = dataRows[0].split('|').slice(1,-1)
+              .map(c => `<th>${inline(esc(c.trim()))}</th>`).join('');
+            const body = dataRows.slice(1).map(row => {
+              const cells = row.split('|').slice(1,-1)
+                .map(c => `<td>${inline(esc(c.trim()))}</td>`).join('');
+              return `<tr>${cells}</tr>`;
+            }).join('');
+            html += `<div class="chat-table-wrap"><table class="chat-table"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></div>`;
+          }
+          continue;
+        }
+
+        // Lista
+        if (/^[-*] /.test(line)) {
+          const items = [];
+          while (i < lines.length && /^[-*] /.test(lines[i])) {
+            items.push(`<li>${inline(esc(lines[i].slice(2).trim()))}</li>`);
+            i++;
+          }
+          html += `<ul>${items.join('')}</ul>`;
+          continue;
+        }
+
+        // Línea vacía
+        if (!line.trim()) { html += '<br>'; i++; continue; }
+
+        // Texto normal
+        html += inline(esc(line)) + '<br>';
+        i++;
+      }
+      return html;
     },
   };
 }
