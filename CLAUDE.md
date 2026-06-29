@@ -19,7 +19,7 @@ La Coordinación gestiona actualmente cinco planillas de Google Drive de forma m
 
 ## 2. Fuentes de Verdad (Google Drive)
 
-Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las lee** — no escribe sobre ellas en Fase 1 ni Fase 2.
+Las planillas son la fuente de verdad del sistema. El sistema **solo las lee** — no escribe sobre ellas en Fase 1 ni Fase 2.
 
 | # | Planilla | Formato | Propietario | ID Drive |
 |---|----------|---------|-------------|----------|
@@ -28,8 +28,19 @@ Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las l
 | 3 | Ingreso de Civiles 2026 | Google Sheet | caeunidad9@gmail.com | `1ycIp1bFIyNVi-UxqoAB86ok4hdMDMWWSJ0UWXYj31lo` |
 | 4 | LISTADO TRABAJADORES COLEGIO 2026 | .xlsx | soporteescuelau9@gmail.com | `1Ypz1osYWJp9yVO1FSJZD7tFG82jFVTU7` |
 | 5 | FACULTADES 2026 | Google Sheet | caeunidad9@gmail.com | `1jNZ7bSOAeny-8TNkNYj0c70EI19FVY4rGck2cgRhRg8` |
+| 6 | Cursos 2026 | Google Sheet | a crear por coordinador | `env: DRIVE_ID_CURSOS` (pendiente) |
 
 > La escritura de vuelta a Drive se evaluará en Fase 3 una vez probada la confiabilidad del sistema.
+
+### Planilla Cursos 2026 — estructura requerida
+
+El coordinador debe crear un Google Sheet con dos hojas exactas:
+
+**Hoja "Cursos":** Nombre · Docente DNI · Destino · Fecha Inicio · Fecha Fin · Estado · Observaciones
+
+**Hoja "Inscripciones":** F.C. Nº · Curso (nombre exacto) · Estado (Cursando/Aprobado/Desaprobado) · Observaciones
+
+Compartir con `gau9-worker@gau-9-drive.iam.gserviceaccount.com` y agregar el ID como secret `DRIVE_ID_CURSOS` en Vercel y GitHub Actions.
 
 ---
 
@@ -58,11 +69,11 @@ Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las l
 | Hosting (API + Frontend) | **Vercel** — mismo dominio, misma app | Gratuito |
 | Auth | JWT (jsonwebtoken + bcryptjs) | Gratuito |
 | Seguridad HTTP | **helmet.js** | Gratuito |
-| Asistente IA | API Anthropic — claude-sonnet-4-6 (Fase 3) | ~$5/mes estimado |
+| Asistente IA | **@anthropic-ai/sdk** — claude-sonnet-4-6 — **activo en producción** | ~$5/mes estimado |
 
 > **Railway trial expiró (Jun 2026).** Se migró a Vercel (API serverless + static dashboard) + GitHub Actions (worker cron). El endpoint `POST /api/sync/ejecutar` NO funciona en Vercel serverless — la sincronización real es exclusivamente via GitHub Actions.
 
-**Principio:** Costo cero en Fase 1 y Fase 2. El único costo aparece en Fase 3 con el asistente IA, y será evaluado contra el valor operativo que genere.
+**Principio:** Costo cero en Fase 1 y Fase 2 salvo Anthropic (~$5/mes, ya activo).
 
 ### División de roles:
 - **Claude.ai** → Arquitectura, análisis de planillas, decisiones técnicas
@@ -94,11 +105,11 @@ Las cinco planillas son la fuente de verdad del sistema. El sistema **solo las l
 
 ```
 gau9/
-├── schema_gau9.sql            ← schema + activity_log al final
+├── schema_gau9.sql            ← schema base + activity_log
 ├── schema_auth.sql            ← tabla usuarios
 ├── vercel.json                ← routes: /api/* → api/index.js, /* → dashboard/
 ├── .env
-├── .env.example               ← incluye DASHBOARD_ORIGIN
+├── .env.example
 ├── .github/
 │   └── workflows/
 │       └── sync.yml           ← cron cada 30 min → node worker/sync-once.js
@@ -106,12 +117,13 @@ gau9/
 │   ├── sync-once.js           ← entry point GitHub Actions (corre todos y sale)
 │   ├── index.js               ← orquestador local (dev) + node-cron
 │   ├── drive.js               ← auth service account + leerXlsx + leerSheetCompleto
-│   ├── normalizar.js          ← normalizarDNI(), normalizarFC(), mapearRol(), normalizarTurno()
+│   ├── normalizar.js          ← normalizarDNI(), normalizarFC(), mapearRol(), etc.
 │   ├── sync_primario.js
 │   ├── sync_secundario.js
 │   ├── sync_civiles.js
 │   ├── sync_trabajadores.js
-│   └── sync_facultades.js
+│   ├── sync_facultades.js
+│   └── sync_cursos.js         ← hojas "Cursos" e "Inscripciones"
 ├── api/
 │   ├── index.js               ← Express entry point + helmet + todas las rutas
 │   ├── db.js                  ← pool pg
@@ -121,20 +133,24 @@ gau9/
 │   └── routes/
 │       ├── auth.js            ← POST /login + POST /cambiar-password
 │       ├── dashboard.js       ← GET /api/dashboard/resumen
-│       ├── actividad.js       ← GET /api/actividad?limit=N (ADMIN ve todo, JEFE ve lo propio)
+│       ├── actividad.js       ← GET /api/actividad?limit=N
 │       ├── presentismo.js
-│       ├── civiles.js
+│       ├── civiles.js         ← /hoy filtra por día de semana (ILIKE dias_horarios)
 │       ├── traslados.js
-│       ├── personas.js
+│       ├── personas.js        ← INTERNO incluye datos laborales de personal_spb via FC
+│       ├── cursos.js          ← CRUD cursos + inscripciones + cerrar cursada
+│       ├── asistente.js       ← POST SSE streaming — claude-sonnet-4-6
 │       └── sync.js
 ├── dashboard/
-│   ├── index.html             ← PWA reescrito con design system institucional
-│   ├── app.js                 ← Alpine.js — todos los componentes y lógica
-│   ├── sw.js                  ← Service Worker Cache First + Background Sync
-│   ├── style.css              ← Design system completo (CSS custom properties)
-│   ├── manifest.json          ← PWA manifest (theme navy #0f1f4a)
+│   ├── index.html             ← 6 vistas + 6 modales + asistente FAB
+│   ├── app.js                 ← Alpine.js — todos los componentes
+│   ├── sw.js                  ← Service Worker gau9-v9
+│   ├── style.css              ← Design system (CSS custom properties, navy + gold)
+│   ├── manifest.json          ← PWA manifest
 │   └── icons/
-│       └── icon.svg           ← ícono institucional navy + gold
+│       ├── icon.svg
+│       ├── icon-192.png       ← PNG para instalación Android/desktop
+│       └── icon-512.png
 └── CLAUDE.md
 ```
 
@@ -152,9 +168,11 @@ JWT_SECRET=<secreto largo aleatorio>
 JWT_EXPIRES_IN=8h
 NODE_ENV=development
 DASHBOARD_ORIGIN=https://gau-9.vercel.app   ← CORS en producción
+ANTHROPIC_API_KEY=<clave API Anthropic>      ← Asistente IA activo
+DRIVE_ID_CURSOS=<ID Sheet Cursos 2026>       ← pendiente hasta que el coordinador cree la planilla
 ```
 
-> En GitHub Actions, el JSON de la service account se guarda como secret `GOOGLE_SERVICE_ACCOUNT_JSON` y el workflow lo escribe en `credentials/service_account.json` antes de correr el worker.
+> En GitHub Actions, el JSON de la service account se guarda como secret `GOOGLE_SERVICE_ACCOUNT_JSON` y el workflow lo escribe en `credentials/service_account.json` antes de correr el worker. `ANTHROPIC_API_KEY` y `DRIVE_ID_CURSOS` también deben estar como secrets de GitHub Actions.
 
 ---
 
@@ -162,13 +180,9 @@ DASHBOARD_ORIGIN=https://gau-9.vercel.app   ← CORS en producción
 
 ### Modificación requerida: `personal_spb`
 La planilla Trabajadores Colegio **no tiene columna DNI** (solo `I.D Nº` y `F.C Nº`).
-El schema original tenía `dni` como PK y FK a `personas` — eso impide popular la tabla desde la planilla.
-
 **Solución aplicada:** `personal_spb` usa UUID como PK; `dni` es nullable; `ficha_conducta` es la clave operativa.
 
-### Tabla faltante: `usuarios` (auth)
-El schema original no incluye tabla de autenticación. Se agrega en `schema_auth.sql`:
-
+### Tabla `usuarios` (auth)
 ```sql
 CREATE TABLE usuarios (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -181,15 +195,46 @@ CREATE TABLE usuarios (
 );
 ```
 
-### Orden de sincronización (dependencias FK obligatorio)
+### Tablas `cursos` e `inscripciones` (Fase 2 — creadas 29/06/2026)
+```sql
+CREATE TABLE cursos (
+    id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre         VARCHAR(200) NOT NULL UNIQUE,
+    docente_dni    VARCHAR(20),
+    destino        VARCHAR(50),
+    fecha_inicio   DATE,
+    fecha_fin      DATE,
+    estado         VARCHAR(20) DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO','FINALIZADO','SUSPENDIDO')),
+    observaciones  TEXT,
+    fuente_fila    INTEGER,
+    creado_en      TIMESTAMP DEFAULT NOW(),
+    actualizado_en TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE inscripciones (
+    id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    curso_id       UUID NOT NULL REFERENCES cursos(id) ON DELETE CASCADE,
+    ficha_conducta VARCHAR(20) NOT NULL,
+    estado         VARCHAR(20) DEFAULT 'Cursando' CHECK (estado IN ('Cursando','Aprobado','Desaprobado')),
+    observaciones  TEXT,
+    fuente_fila    INTEGER,
+    creado_en      TIMESTAMP DEFAULT NOW(),
+    actualizado_en TIMESTAMP DEFAULT NOW(),
+    UNIQUE (curso_id, ficha_conducta)
+);
+```
+
+### Orden de sincronización (dependencias FK)
 
 ```
 1. personas           ← base, sin dependencias
 2. internos_detalle   ← FK → personas
 3. personal_spb       ← FK → personas (nullable cuando no hay DNI)
 4. civiles_ingreso    ← FK → personas
-5. presentismo        ← FK → personas (internos ya cargados)
+5. presentismo        ← FK → personas
 6. traslados          ← FK → personas + internos_detalle.ficha_conducta
+7. cursos             ← sin dependencias FK externas
+8. inscripciones      ← FK → cursos (ficha_conducta referencia operativa)
 ```
 
 ---
@@ -198,145 +243,143 @@ CREATE TABLE usuarios (
 
 ```javascript
 // DNI: "37.610.248" → "37610248"
-function normalizarDNI(dni) {
-  if (!dni) return null;
-  return String(dni).replace(/\./g, '').replace(/\s/g, '').trim();
-}
+function normalizarDNI(dni) { ... }
 
-// F.C. Nº: "645.260" → "645260"  (misma lógica)
-function normalizarFC(fc) {
-  if (!fc) return null;
-  return String(fc).replace(/\./g, '').replace(/\s/g, '').trim();
-}
+// F.C. Nº: "645.260" → "645260"
+function normalizarFC(fc) { ... }
 
 // ROL civiles: "Estudiantes" → "ESTUDIANTE"
 function mapearRol(rol) {
-  const mapa = {
-    'docente': 'DOCENTE', 'civil': 'CIVIL',
-    'estudiante': 'ESTUDIANTE', 'estudiantes': 'ESTUDIANTE',
-    'juez': 'JUEZ', 'abogado': 'ABOGADO',
-  };
-  return mapa[String(rol).toLowerCase().trim()] || 'OTRO';
+  // DOCENTE, CIVIL, ESTUDIANTE, JUEZ, ABOGADO → OTRO
 }
 
 // Turno: "Tarde" → "TARDE"
-function normalizarTurno(turno) {
-  return String(turno || '').toUpperCase().trim();
-}
+function normalizarTurno(turno) { ... }
 ```
 
 ---
 
-## 10. Notas por Planilla (validadas con datos reales el 23/06/2026)
+## 10. Notas por Planilla
 
 ### Presentismo Primario y Secundario
 - Las **primeras filas de cada hoja son totales agregados** — skipear hasta encontrar la fila con "CICLO" o "CURSO"
 - Columnas de días son dinámicas por mes
 - DNI puede venir con o sin puntos en el mismo archivo
-- Columna A (ausencias) existe en ambos niveles; en Secundario siempre es 0
 
 ### Trabajadores Colegio
 - Sin columna DNI — usar `F.C Nº` como clave operativa
-- Fecha en **3 columnas separadas**: `D`, `M`, `AÑO` → `new Date(AÑO, M-1, D)`
-- Typo en el header original: `TAREA ASGINADA` (no ASIGNADA) — buscar esa variante exacta
-- El archivo tiene múltiples secciones por página (COLEGIO / CEUSTA) — detectar por texto de sección
+- Fecha en **3 columnas separadas**: `D`, `M`, `AÑO`
+- Typo en el header original: `TAREA ASGINADA` (no ASIGNADA)
+- El archivo tiene múltiples secciones por página (COLEGIO / CEUSTA)
+- Los datos de trabajo (tarea, taller, sector) se muestran en el perfil del interno via JOIN por ficha_conducta
 
 ### Facultades
 - Primera columna se llama `Fecha 2` (no `Fecha`)
 - F.C. N° viene con puntos: `645.260` — usar `normalizarFC()`
-- Es el libro de traslados completo: incluye Certificado, Aval, GPS/Rojo/Blanco, múltiples GDEBA
-- Este sheet es la **fuente histórica** de traslados — los nuevos se cargan manualmente via API
+- Es el libro de traslados históricos — los nuevos se cargan manualmente via API
+- Internos que solo aparecen en Facultades se crean con DNI placeholder `FC-{numero}`
 
 ### Ingreso Civiles
 - Estructura limpia, hoja continua (no por mes)
-- DNI mezcla formatos en el mismo archivo — siempre normalizar
+- DNI mezcla formatos — siempre normalizar
 - ROL como texto libre — siempre pasar por `mapearRol()`
+- `dias_horarios` contiene el día de semana en texto: "Viernes de 14:00 hs a 18:00 hs"
+- El filtro `/hoy` usa ILIKE con CASE DOW — funciona para días regulares, NO para eventos especiales por fecha puntual (pendiente definir con jefes)
+
+### Cursos 2026 (pendiente creación por coordinador)
+- Google Sheet con dos hojas: "Cursos" e "Inscripciones"
+- El interno se identifica por F.C. Nº (no DNI, consistente con Trabajadores)
+- El nombre del curso en "Inscripciones" debe coincidir exactamente con el nombre en "Cursos"
+- Estado de inscripción: `Cursando` / `Aprobado` / `Desaprobado` (case-sensitive en el Sheet)
 
 ---
 
-## 11. API REST — Endpoints Fase 1
+## 11. API REST — Endpoints
 
-Todos los endpoints excepto `/api/auth/login` requieren `Authorization: Bearer <token>`.
+Todos los endpoints excepto `/api/auth/login` y `/verificar/:codigo` requieren `Authorization: Bearer <token>`.
 
 ```
 POST /api/auth/login
-POST /api/auth/cambiar-password      ← verifica pwd actual con bcrypt, actualiza hash
+POST /api/auth/cambiar-password
 
-GET  /api/dashboard/resumen          ← métricas del día: presentismo + civiles + traslados
+GET  /api/dashboard/resumen          ← civiles count filtrado por día de semana
 
-GET  /api/actividad?limit=N          ← ADMIN: todo | JEFE: solo lo propio
+GET  /api/actividad?limit=N
 
 GET  /api/presentismo/hoy
 GET  /api/presentismo/:dni
 GET  /api/presentismo/nivel/:nivel?mes=YYYY-MM
 GET  /api/presentismo/metricas?nivel=PRIMARIO&mes=YYYY-MM
 
+GET  /api/civiles/hoy                ← filtrado por día de semana (ILIKE dias_horarios)
+GET  /api/civiles/vigentes           ← todos activos en período, sin filtro de día
 GET  /api/civiles/activos
-GET  /api/civiles/hoy
 GET  /api/civiles/:dni
-PATCH /api/civiles/:id/estado        ← log: CIVIL_CANCELADO
+PATCH /api/civiles/:id/estado
 
 GET  /api/traslados/hoy
 GET  /api/traslados/:dni_interno
-POST /api/traslados                  ← log: TRASLADO_NUEVO
-PATCH /api/traslados/:id/regreso     ← log: TRASLADO_REGRESO
+POST /api/traslados
+PATCH /api/traslados/:id/regreso
 
-GET  /api/personas/:dni
+GET  /api/personas/:dni              ← INTERNO: incluye datos de personal_spb via ficha_conducta
 GET  /api/buscar?q=apellido
 
-POST /api/sync/ejecutar              ← NO funciona en Vercel serverless (proceso background)
+GET  /api/cursos?estado=ACTIVO       ← lista con métricas (total, cursando, aprobados, desaprobados)
+GET  /api/cursos/:id/alumnos         ← alumnos con datos de persona
+PATCH /api/cursos/inscripciones/:id/estado
+PATCH /api/cursos/:id/cerrar         ← cierra cursada masivamente (listas aprobados/desaprobados)
+
+POST /api/asistente                  ← SSE streaming, claude-sonnet-4-6, contexto DB en tiempo real
+
+POST /api/sync/ejecutar              ← NO funciona en Vercel serverless
 GET  /api/sync/log
 ```
 
-### Activity Log — acciones registradas
+---
 
-| Acción           | Cuándo                              |
-| ---------------- | ----------------------------------- |
-| LOGIN            | Cada login exitoso                  |
-| TRASLADO_NUEVO   | POST /api/traslados                 |
-| TRASLADO_REGRESO | PATCH /api/traslados/:id/regreso    |
-| CIVIL_CANCELADO  | PATCH /api/civiles/:id/estado       |
-| CAMBIO_PASSWORD  | POST /api/auth/cambiar-password     |
+## 12. Asistente IA (activo desde 29/06/2026)
 
-> El log es silencioso: si falla, nunca interrumpe la operación principal (catch vacío en `api/logger.js`).
+- **Endpoint:** `POST /api/asistente` — SSE streaming con `text/event-stream`
+- **Modelo:** `claude-sonnet-4-6` via `@anthropic-ai/sdk` con `client.messages.stream()`
+- **Contexto en tiempo real:** `obtenerContextoDB()` consulta métricas del día, últimas 15 acciones del activity_log, tendencia de presentismo 7 días
+- **Dotenv override:** `dotenv.config({ override: true })` necesario para que `ANTHROPIC_API_KEY` no sea sobreescrita por el entorno de Claude Code local
+- **UI:** botón flotante FAB (z-index 120), panel full-screen con historial de chat, chips de sugerencias, `renderMarkdown()` con soporte de tablas
+- **Roles del asistente:** operativo (estado del día) + estratégico (análisis de tendencias, sugerencias de mejora)
 
 ---
 
-## 12. Traslados — Modalidades GPS
+## 13. Traslados — Modalidades GPS
 
-**Modalidad CON_GPS:** el interno se desplaza solo con tobillera. El sistema registra horario pautado y resultado informado por el oficial.
-- En Fase 2: seguimiento de cumplimiento horario (Escenario A — registro manual pasivo)
-
-**Modalidad SIN_GPS:** el interno es trasladado por personal SPB. Se registra el oficial responsable, hora de salida y hora de regreso.
-
-**Escenario B (tracking en tiempo real):** escalabilidad futura. Requiere integración con sistemas GPS del SPB central y acuerdos institucionales. No forma parte del roadmap actual.
+**Modalidad CON_GPS:** tobillera, registro de horario pautado y resultado.
+**Modalidad SIN_GPS:** traslado por personal SPB, registro de oficial + horarios.
+**Escenario B (tiempo real):** escalabilidad futura, requiere integración SPB central.
 
 ---
 
-## 13. PWA — Comportamiento Offline
+## 14. PWA — Comportamiento Offline
 
-- **Conectividad:** WiFi solo en área de Coordinación; fuera de la unidad los jefes usan datos móviles
 - **Cache First:** presentismo del día, civiles activos, traslados pendientes
 - **Network First:** búsquedas, sync manual
-- **Background Sync:** cola de traslados creados offline — se sincronizan al reconectar
-- No cachear en localStorage — usar IndexedDB con expiración
+- **Background Sync:** cola de traslados offline — se sincronizan al reconectar
+- **SW versión actual:** `gau9-v9` — incrementar con cada deploy que cambie archivos estáticos
+- **Íconos PNG:** `icon-192.png` y `icon-512.png` generados con `rsvg-convert` para instalación en desktop/Android
 
 ---
 
-## 14. Advertencias de Hosting (free tier)
+## 15. Advertencias de Hosting (free tier)
 
-- **Supabase** pausa la DB tras 7 días de inactividad → el worker debe incluir un keepalive query diario
-- **Railway free tier** duerme tras inactividad → el worker debe ser un proceso con `node-cron`, no `setInterval` dentro del servidor API
-- **Vercel** — la API corre serverless; procesos background se matan al terminar el handler. `POST /api/sync/ejecutar` no funciona en producción; la sincronización real es vía GitHub Actions cron
-- **GitHub Actions free tier** — 2000 min/mes; el cron cada 30 min usa ~60 min/mes, sin problema
-- **Railway** — ya no se usa. Trial expiró en Jun 2026. No reconectar.
+- **Supabase** pausa la DB tras 7 días de inactividad → worker incluye keepalive query diario a las 06:00
+- **Vercel** — API serverless; `POST /api/sync/ejecutar` no funciona. Sync real es vía GitHub Actions
+- **GitHub Actions free tier** — 2000 min/mes; cron cada 30 min ≈ 60 min/mes, sin problema
+- **Railway** — ya no se usa. Trial expiró Jun 2026. No reconectar.
 
 ---
 
-## 15. Reglas de Negocio Críticas
+## 16. Reglas de Negocio Críticas
 
 1. El DNI debe normalizarse al ingresar: sin puntos, sin espacios, solo dígitos
-2. El F.C. Nº es la clave de cruce entre Presentismo y Facultades cuando no hay DNI explícito
+2. El F.C. Nº es la clave de cruce entre Presentismo/Facultades/Trabajadores/Inscripciones cuando no hay DNI
 3. Los traslados se registran con hora de salida al partir y hora de regreso al volver
 4. Los cambios en civiles (cancelación/reemplazo) se registran solo en la base de datos — no en Drive
 5. Las planillas tienen múltiples hojas (una por mes) — el worker itera todas
@@ -344,93 +387,50 @@ GET  /api/sync/log
 7. Drive es solo lectura hasta que el sistema demuestre confiabilidad operativa
 8. El flujo de autorización de civiles es externo (SPB central) — la Coordinación solo recibe el resultado
 9. **Datos sensibles:** no loguear DNIs ni nombres completos en consola en producción
+10. El filtro de civiles por día usa ILIKE sobre `dias_horarios` — solo funciona para autorizaciones semanales recurrentes. Eventos especiales por fecha puntual son un caso pendiente de definir con los jefes.
 
 ---
 
-## 16. Roadmap de Fases
+## 17. Roadmap de Fases
 
-### Fase 1 — Sistema Base *(en producción — pendiente sync real)*
+### Fase 1 — Sistema Base ✓ COMPLETA EN PRODUCCIÓN
 - [x] Schema PostgreSQL completo + schema_auth.sql + activity_log
-- [x] Worker de sincronización desde Drive (código completo, bloqueado por service account)
+- [x] Worker de sincronización desde Drive (6 workers incluyendo sync_cursos)
 - [x] Normalización de DNI y datos
-- [x] API REST con auth JWT — todos los endpoints + cambiar-password + dashboard/resumen + actividad
-- [x] Dashboard móvil: Inicio con métricas, presentismo, civiles, traslados, búsqueda
+- [x] API REST con auth JWT — todos los endpoints
+- [x] Dashboard móvil: 6 vistas (Inicio, Asistencia, Civiles, Traslados, Cursos, Buscar)
 - [x] Registro de traslados (salida / regreso / novedad)
 - [x] Registro de cambios en civiles (cancelación / reemplazo)
-- [x] PWA con Service Worker (Cache First + Background Sync + offline queue IndexedDB)
+- [x] PWA con Service Worker + offline queue IndexedDB
 - [x] Log de actividad del sistema
 - [x] Cambio de contraseña para usuarios
 - [x] Deploy en Vercel: https://gau-9.vercel.app
-- [ ] **PENDIENTE BLOQUEANTE:** compartir las 5 planillas con gau9-worker@gau-9-drive.iam.gserviceaccount.com
-- [ ] **PENDIENTE BLOQUEANTE:** crear las 3 cuentas de usuario para los jefes
-- [ ] UX/UI: usar MCP de 21st.dev (magic component builder/inspector) para rediseño más profesional
+- [x] Asistente IA streaming (claude-sonnet-4-6) con contexto operativo y estratégico
+- [x] Civiles agrupados por categoría (DOCENTE, JUEZ, ABOGADO, etc.)
+- [x] Perfil del interno con datos laborales (tarea, taller, sector de personal_spb)
+- [x] Módulo Cursos + Inscripciones (schema + worker + API + vista)
+- [ ] **PENDIENTE:** compartir planilla "Cursos 2026" con service account + agregar `DRIVE_ID_CURSOS`
+- [ ] **PENDIENTE:** crear las 3 cuentas de usuario para los jefes
+- [ ] **PENDIENTE:** cosas varias que quedaron de la sesión 29/06 — ver con jefes
 
-### Fase 2 — Vistas Especializadas y Seguimiento GPS Pasivo
-- [ ] Vista de Cursos activos
-- [ ] Vista de Abogados / Jueces / Charlas
-- [ ] Vista de Actividades semanales
+### Fase 2 — Vistas Especializadas y Seguimiento
+- [x] Vista de Cursos activos ← adelantada a Fase 1
+- [ ] Certificado PDF con código de validación único + QR
+- [ ] Página pública `/verificar/:codigo` para validación de certificados (juzgados)
+- [ ] Eventos especiales: campo `fecha_especial` en civiles para autorizaciones puntuales (pendiente consulta a jefes)
 - [ ] Métricas académicas comparativas (Primario vs Secundario)
 - [ ] Seguimiento horario de internos CON_GPS (Escenario A — cumplimiento manual)
 - [ ] Reportes exportables
 
-### Fase 3 — Asistente IA + Escritura a Drive
-- [ ] Integración API Anthropic (claude-sonnet-4-6)
-- [ ] Asistente con acceso a PostgreSQL consolidado
-- [ ] Consultas en lenguaje natural sobre las planillas
+### Fase 3 — Asistente IA avanzado + Escritura a Drive
+- [x] Integración API Anthropic ← adelantada a Fase 1
 - [ ] Alertas automáticas (traslados sin regreso, vencimiento de autorizaciones)
-- [ ] Evaluación de escritura de vuelta a Drive (si el sistema demostró confiabilidad)
+- [ ] Evaluación de escritura de vuelta a Drive
+- [ ] Asistente con acceso a historial de cursos y certificados
 
-### Escalabilidad Futura (post Fase 3)
+### Escalabilidad Futura
 - [ ] Tracking GPS en tiempo real — Escenario B (requiere integración SPB central)
 - [ ] Extensión a otras unidades del SPB
-
----
-
-## 17. Plan de Trabajo Fase 1 — Checklist de Implementación
-
-### Fase 1A — Fundaciones ✓ COMPLETA (23/06/2026)
-- [x] Crear `schema_gau9.sql` con modificación a `personal_spb` (dni nullable, PK UUID)
-- [x] Crear `schema_auth.sql` con tabla `usuarios`
-- [x] Ejecutar schemas en Supabase y verificar las 8 tablas (7 + usuarios)
-- [x] Crear estructura de carpetas del proyecto
-- [x] Inicializar `package.json` con dependencias
-- [x] Crear `.env.example`
-
-### Fase 1B — Worker de Sincronización ✓ COMPLETA — bloqueada esperando service account
-
-- [x] `worker/normalizar.js` — normalizarDNI, normalizarFC, mapearRol, normalizarTurno
-- [x] `worker/drive.js` — auth service account + leerXlsx + leerSheetCompleto
-- [x] `worker/sync_civiles.js`
-- [x] `worker/sync_primario.js` — skipeo de filas de totales
-- [x] `worker/sync_secundario.js`
-- [x] `worker/sync_trabajadores.js` — secciones múltiples, fecha en 3 cols, typo ASGINADA
-- [x] `worker/sync_facultades.js` — F.C. normalizado, columna "Fecha 2"
-- [x] `worker/index.js` — orquestador + node-cron + keepalive Supabase 06:00
-- [x] `worker/sync-once.js` — entry point GitHub Actions (corre todos y sale con process.exit)
-
-### Fase 1C — API ✓ COMPLETA
-
-- [x] `api/db.js` — pool pg + manejo de errores de conexión
-- [x] `api/logger.js` — log() silencioso; usa req.usuario (alias de req.user)
-- [x] `api/middleware/auth.js` — JWT middleware; sets req.user Y req.usuario
-- [x] `api/routes/auth.js` — POST /login + POST /cambiar-password
-- [x] `api/routes/dashboard.js` — GET /api/dashboard/resumen
-- [x] `api/routes/actividad.js` — GET /api/actividad (ADMIN vs JEFE)
-- [x] `api/routes/presentismo.js`
-- [x] `api/routes/civiles.js` — con log CIVIL_CANCELADO
-- [x] `api/routes/traslados.js` — con log TRASLADO_NUEVO y TRASLADO_REGRESO
-- [x] `api/routes/personas.js`
-- [x] `api/routes/sync.js`
-- [x] `api/index.js` — Express + helmet + CORS (DASHBOARD_ORIGIN) + todas las rutas
-
-### Fase 1D — PWA Frontend ✓ COMPLETA
-
-- [x] `dashboard/index.html` — 5 vistas + 5 modales, design system institucional
-- [x] `dashboard/app.js` — Alpine.js: login, resumen, presentismo, civiles, traslados, búsqueda, actividad, cambio de contraseña, offline queue
-- [x] `dashboard/sw.js` — Cache First + Background Sync + IndexedDB offline
-- [x] `dashboard/style.css` — design system completo (CSS custom properties, navy + gold)
-- [x] `dashboard/manifest.json` + `dashboard/icons/icon.svg` — PWA instalable Android/iOS
-- [x] Deploy activo: <https://gau-9.vercel.app>
 
 ---
 
@@ -448,7 +448,8 @@ GET  /api/sync/log
     "bcryptjs": "^2.x",
     "dotenv": "^16.x",
     "cors": "^2.x",
-    "helmet": "^7.x"
+    "helmet": "^7.x",
+    "@anthropic-ai/sdk": "^0.x"
   }
 }
 ```
@@ -460,53 +461,48 @@ GET  /api/sync/log
 | Fecha | Decisión | Motivo |
 |-------|----------|--------|
 | Jun 2026 | DNI como PK universal | Único identificador presente en los tres grupos |
-| Jun 2026 | Node.js + Express (no Python) | Consistencia con JS del Service Worker; menos context switching |
-| Jun 2026 | Alpine.js + Tailwind (no React) | Sin build step; carga rápida en celular; 3 usuarios no justifican SPA compleja |
-| Jun 2026 | Railway para worker (original) | Free tier duerme — worker en cron propio evita fallos silenciosos |
-| Jun 2026 | **Vercel + GitHub Actions** (reemplazo Railway) | Railway trial expiró Jun 2026; Vercel sirve API serverless + static; GH Actions hace el cron de sync |
-| Jun 2026 | personal_spb.dni nullable | Planilla Trabajadores Colegio no tiene DNI — PK cambiado a UUID |
-| Jun 2026 | schema_auth.sql separado | El schema original no incluía autenticación |
+| Jun 2026 | Node.js + Express (no Python) | Consistencia con JS del Service Worker |
+| Jun 2026 | Alpine.js + CSS custom properties (no React/Tailwind @apply) | Sin build step; @apply requiere PostCSS y falla silenciosamente en browser |
+| Jun 2026 | **Vercel + GitHub Actions** (reemplazo Railway) | Railway trial expiró Jun 2026 |
+| Jun 2026 | personal_spb.dni nullable | Planilla Trabajadores no tiene DNI — PK cambiado a UUID |
 | Jun 2026 | Drive solo lectura en Fase 1 y 2 | El sistema debe probar confiabilidad antes de permisos de escritura |
-| Jun 2026 | PWA con caché offline | Jefes usan celulares fuera del área con WiFi |
-| Jun 2026 | Asistente IA en Fase 3 | Datos deben estar limpios y consolidados antes de agregar lenguaje natural |
-| Jun 2026 | GPS Escenario A en Fase 2 | Seguimiento pasivo sin costo; Escenario B (tiempo real) queda como escalabilidad futura |
-| Jun 2026 | Costo cero en Fase 1 y 2 | Free tiers de Supabase, Vercel, GitHub Actions; único costo en Fase 3 ($5/mes Anthropic) |
-| Jun 2026 | Flujo de autorización civil es externo | SPB central gestiona la autorización; Coordinación solo recibe resultado final |
-| Jun 2026 | Activity log silencioso | El log nunca interrumpe la operación principal — catch vacío en api/logger.js |
-| Jun 2026 | req.usuario alias en auth middleware | Rutas y logger usan req.usuario; middleware JWT seteaba solo req.user — se agrega alias |
-| Jun 2026 | CSS custom properties (sin Tailwind @apply) | @apply requiere PostCSS; en browser sin build se ignoraba todo y la pantalla quedaba en blanco |
-| Jun 2026 | UX/UI: usar MCP 21st.dev en próxima iteración | El rediseño actual fue hecho inline sin las skills de magic component builder/inspector — debe mejorarse |
+| Jun 2026 | PWA con caché offline | Jefes usan celulares fuera del área WiFi |
+| Jun 2026 | Activity log silencioso | Nunca interrumpe la operación principal — catch vacío en api/logger.js |
+| Jun 2026 | req.usuario alias en auth middleware | Rutas y logger usan req.usuario; middleware JWT seteaba solo req.user |
+| Jun 2026 | dotenv.config({ override: true }) en asistente.js | Sin override, ANTHROPIC_API_KEY del entorno Claude Code sobreescribía la del .env local |
+| Jun 2026 | Asistente IA adelantado a Fase 1 | Demanda operativa real — los jefes necesitan apoyo estratégico desde el inicio |
+| Jun 2026 | Civiles /hoy filtra por día de semana | El campo dias_horarios contiene el nombre del día — ILIKE es suficiente para autorizaciones recurrentes |
+| Jun 2026 | Civiles agrupados por rol (no lista plana) | Con 10-50 personas en eventos la lista plana es ilegible; agrupado por DOCENTE/JUEZ/ABOGADO/etc. da estructura visual |
+| Jun 2026 | Perfil interno via JOIN personal_spb por FC | La planilla Trabajadores no tiene DNI — el único link es ficha_conducta → internos_detalle → personas |
+| Jun 2026 | Cursos: nombre UNIQUE como clave de upsert | Evita duplicados sin requerir ID externo; el coordinador controla los nombres |
+| Jun 2026 | Inscripciones: ficha_conducta sin FK dura a internos_detalle | Permite inscribir antes de que el interno esté sincronizado desde Presentismo |
 
 ---
 
----
-
-## 20. Estado Actual y Próximos Pasos (26/06/2026)
+## 20. Estado Actual y Próximos Pasos (29/06/2026)
 
 ### Sistema en producción
 
-- URL: <https://gau-9.vercel.app>
+- URL: https://gau-9.vercel.app
 - API serverless en Vercel, DB en Supabase (sa-east-1)
-- GitHub Actions cron configurado, pendiente que se active con las credenciales correctas
+- GitHub Actions cron activo — las 5 planillas originales ya sincronizadas
 - Usuario ADMIN creado: `admin@gau9.com`
+- Asistente IA activo con `ANTHROPIC_API_KEY` en Vercel
 
-### Bloqueantes para operación real
+### Pendientes operativos
 
-1. **Compartir planillas Drive** con `gau9-worker@gau-9-drive.iam.gserviceaccount.com`
-   - `soporteescuelau9@gmail.com` debe compartir: Presentismo Primario, Presentismo Secundario, Trabajadores Colegio
-   - `caeunidad9@gmail.com` debe compartir: Ingreso Civiles, Facultades
-2. **Crear las 3 cuentas de los jefes** (script `node scripts/crear_admin.js`)
-3. **Verificar secrets en GitHub Actions**: `DATABASE_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `JWT_SECRET`
+1. **Planilla "Cursos 2026"**: el coordinador debe crearla con las hojas "Cursos" e "Inscripciones", compartirla con el service account, y pasar el ID para agregar `DRIVE_ID_CURSOS` en Vercel + GitHub Actions secrets
+2. **Crear las 3 cuentas de los jefes** (`node scripts/crear_admin.js`)
+3. **Cosas varias** observadas en la sesión del 29/06 — revisar con los jefes en la próxima sesión
 
-### Pendiente de mejora (próxima sesión)
+### Pendientes técnicos (próxima sesión)
 
-- **UX/UI**: usar los MCP de 21st.dev (`mcp__magic__21st_magic_component_builder`,
-  `mcp__magic__21st_magic_component_inspiration`, `mcp__magic__21st_magic_component_refiner`)
-  para un rediseño de nivel profesional real — no hacerlo inline
-- **Logo**: mostrar al usuario los 4 candidatos de Canva para que elija
-- **Guía de entrega** para los jefes (cómo instalar la PWA, cómo cambiar contraseña)
+- **Eventos especiales civiles**: definir con jefes si las autorizaciones para eventos puntuales usan fecha específica (campo `fecha_especial`) o convención de texto en `dias_horarios`
+- **Certificado PDF**: jsPDF en frontend, código único de validación, QR imprimible
+- **Página pública de validación** (`/verificar/:codigo`) para que juzgados puedan autenticar certificados
+- **Cosas varias del dashboard** que quedaron pendientes de revisar
 
 ---
 
 *Proyecto GAU-9 — Coordinación Académica, Unidad 9 SPB*
-*Iniciado: 23 de junio 2026 | Mantenido por Claude Code*
+*Iniciado: 23 de junio 2026 | Actualizado: 29 de junio 2026 | Mantenido por Claude Code*
