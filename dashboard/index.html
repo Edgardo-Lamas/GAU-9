@@ -372,35 +372,52 @@
 
         <div x-show="cargando && vistaActual==='civiles'" class="loading-spinner">Cargando…</div>
 
-        <div class="px-4 space-y-2">
-          <template x-for="c in civiles" :key="c.id">
-            <div class="list-card">
-              <div class="list-card-inner list-card-blue">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex-1 min-w-0">
-                    <p class="list-card-name" x-text="`${c.apellido_1}, ${c.nombre}`"></p>
-                    <p class="list-card-meta" x-text="`${c.rol} · DNI ${c.dni}`"></p>
-                    <p x-show="c.actividad" class="text-xs mt-1 font-medium"
-                      style="color: var(--slate-600)" x-text="c.actividad"></p>
-                    <p x-show="c.dias_horarios" class="text-xs mt-1 font-semibold"
-                      style="color: var(--navy-700)" x-text="c.dias_horarios"></p>
-                    <p class="text-xs mt-0.5" style="color: var(--slate-500)"
-                      x-text="`Autorizado del ${fmtFechaSolo(c.alta)} al ${fmtFechaSolo(c.fin)}`"></p>
-                    <p x-show="c.gdeba_nro" class="text-xs mt-0.5"
-                      style="color: var(--slate-400)" x-text="`GDEBA: ${c.gdeba_nro}`"></p>
+        <div class="px-4 space-y-4">
+          <template x-for="grupo in civilesPorRol()" :key="grupo.rol">
+            <div>
+              <!-- Encabezado de grupo -->
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-bold uppercase tracking-widest"
+                  style="color: var(--navy-700)" x-text="grupo.rol"></span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style="background: var(--navy-100); color: var(--navy-700)"
+                  x-text="grupo.items.length"></span>
+              </div>
+
+              <!-- Tarjetas del grupo -->
+              <div class="space-y-2">
+                <template x-for="c in grupo.items" :key="c.id">
+                  <div class="list-card">
+                    <div class="list-card-inner list-card-blue">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                          <p class="list-card-name" x-text="`${c.apellido_1}, ${c.nombre}`"></p>
+                          <p class="list-card-meta" x-text="`DNI ${c.dni}`"></p>
+                          <p x-show="c.actividad" class="text-xs mt-1 font-medium"
+                            style="color: var(--slate-600)" x-text="c.actividad"></p>
+                          <p x-show="c.dias_horarios" class="text-xs mt-1 font-semibold"
+                            style="color: var(--navy-700)" x-text="c.dias_horarios"></p>
+                          <p class="text-xs mt-0.5" style="color: var(--slate-500)"
+                            x-text="`Autorizado del ${fmtFechaSolo(c.alta)} al ${fmtFechaSolo(c.fin)}`"></p>
+                          <p x-show="c.gdeba_nro" class="text-xs mt-0.5"
+                            style="color: var(--slate-400)" x-text="`GDEBA: ${c.gdeba_nro}`"></p>
+                        </div>
+                        <span class="badge-activo shrink-0" x-text="c.destino || 'OTRO'"></span>
+                      </div>
+                      <div class="mt-3 pt-2.5" style="border-top: 1px solid var(--slate-100)">
+                        <button @click="abrirCancelarCivil(c)"
+                          class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                          style="color: var(--red-600); border: 1px solid rgb(220 38 38 / 0.3); background: var(--red-50)">
+                          Cancelar autorización
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <span class="badge-activo shrink-0" x-text="c.destino || 'OTRO'"></span>
-                </div>
-                <div class="mt-3 pt-2.5" style="border-top: 1px solid var(--slate-100)">
-                  <button @click="abrirCancelarCivil(c)"
-                    class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                    style="color: var(--red-600); border: 1px solid rgb(220 38 38 / 0.3); background: var(--red-50)">
-                    Cancelar autorización
-                  </button>
-                </div>
+                </template>
               </div>
             </div>
           </template>
+
           <div x-show="!cargando && civiles.length === 0" class="empty-state">
             <div class="empty-state-icon">👥</div>
             <div class="empty-state-text">Sin civiles programados para hoy</div>
@@ -941,6 +958,89 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: PERFIL INTERNO ─────────────────────────────── -->
+  <div x-show="modal === 'detallePersona'" x-cloak class="modal-overlay" @click.self="modal=null">
+    <div class="modal-panel" x-data style="max-height: 85svh; overflow-y: auto">
+      <div class="modal-handle"></div>
+
+      <template x-if="detallePersona">
+        <div>
+          <!-- Encabezado -->
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 class="modal-title" style="margin-bottom:0.15rem"
+                x-text="`${detallePersona.apellido_1}${detallePersona.apellido_2 ? ' ' + detallePersona.apellido_2 : ''}, ${detallePersona.nombre}`"></h2>
+              <p class="text-xs" style="color:var(--slate-400)" x-text="`DNI ${detallePersona.dni}`"></p>
+            </div>
+            <span :class="tipoBadge(detallePersona.tipo)" x-text="detallePersona.tipo" class="shrink-0"></span>
+          </div>
+
+          <!-- Datos básicos (interno) -->
+          <div x-show="detallePersona.detalle" class="space-y-1 mb-4">
+            <div class="perfil-row" x-show="detallePersona.detalle?.ficha_conducta">
+              <span class="perfil-label">F.C. Nº</span>
+              <span class="perfil-value" x-text="detallePersona.detalle?.ficha_conducta"></span>
+            </div>
+            <div class="perfil-row" x-show="detallePersona.detalle?.pabellon">
+              <span class="perfil-label">Pabellón</span>
+              <span class="perfil-value" x-text="detallePersona.detalle?.pabellon"></span>
+            </div>
+            <div class="perfil-row" x-show="detallePersona.detalle?.nivel_educativo">
+              <span class="perfil-label">Nivel educativo</span>
+              <span class="perfil-value" x-text="detallePersona.detalle?.nivel_educativo"></span>
+            </div>
+            <div class="perfil-row" x-show="detallePersona.detalle?.anio_cursada">
+              <span class="perfil-label">Año</span>
+              <span class="perfil-value" x-text="detallePersona.detalle?.anio_cursada"></span>
+            </div>
+          </div>
+
+          <!-- Trabajo (si tiene registro en Trabajadores Colegio) -->
+          <template x-if="detallePersona.detalle?.tarea_asignada || detallePersona.detalle?.sector">
+            <div>
+              <h3 class="text-xs font-bold uppercase mb-2" style="color:var(--navy-700);letter-spacing:0.06em">
+                Actividad laboral
+              </h3>
+              <div class="space-y-1">
+                <div class="perfil-row" x-show="detallePersona.detalle?.tarea_asignada">
+                  <span class="perfil-label">Tarea asignada</span>
+                  <span class="perfil-value" x-text="detallePersona.detalle?.tarea_asignada"></span>
+                </div>
+                <div class="perfil-row" x-show="detallePersona.detalle?.taller">
+                  <span class="perfil-label">Taller / Área</span>
+                  <span class="perfil-value" x-text="detallePersona.detalle?.taller"></span>
+                </div>
+                <div class="perfil-row" x-show="detallePersona.detalle?.trabajo_sector">
+                  <span class="perfil-label">Sector</span>
+                  <span class="perfil-value" x-text="detallePersona.detalle?.trabajo_sector"></span>
+                </div>
+                <div class="perfil-row" x-show="detallePersona.detalle?.trabajo_situacion">
+                  <span class="perfil-label">Situación</span>
+                  <span class="perfil-value" x-text="detallePersona.detalle?.trabajo_situacion"></span>
+                </div>
+                <div class="perfil-row" x-show="detallePersona.detalle?.dias_trabajados">
+                  <span class="perfil-label">Días trabajados</span>
+                  <span class="perfil-value" x-text="detallePersona.detalle?.dias_trabajados"></span>
+                </div>
+                <div class="perfil-row" x-show="detallePersona.detalle?.trabajo_desde">
+                  <span class="perfil-label">Desde</span>
+                  <span class="perfil-value" x-text="fmtFechaSolo(detallePersona.detalle?.trabajo_desde)"></span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+        </div>
+      </template>
+
+      <div x-show="!detallePersona" class="loading-spinner">Cargando…</div>
+
+      <div class="flex mt-5">
+        <button @click="modal=null" class="btn-secondary flex-1">Cerrar</button>
+      </div>
     </div>
   </div>
 

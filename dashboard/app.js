@@ -44,6 +44,7 @@ function gau9App() {
     passwordOk: false,
     trasladoSeleccionado: null,
     civilSeleccionado: null,
+    detallePersona: null,
 
     // ── Asistente IA
     asistenteAbierto: false,
@@ -439,17 +440,14 @@ function gau9App() {
       }
     },
 
-    verDetalle(persona) {
-      // Por ahora solo muestra en alert básico. En Fase 2 se expande a vista dedicada.
-      const info = [
-        `${persona.apellido_1}, ${persona.nombre}`,
-        `DNI: ${persona.dni}`,
-        `Tipo: ${persona.tipo}`,
-        persona.ficha_conducta ? `FC: ${persona.ficha_conducta}` : null,
-        persona.pabellon ? `Pabellón: ${persona.pabellon}` : null,
-        persona.nivel_educativo ? `Nivel: ${persona.nivel_educativo}` : null,
-      ].filter(Boolean).join('\n');
-      alert(info);
+    async verDetalle(persona) {
+      this.detallePersona = null;
+      this.modal = 'detallePersona';
+      try {
+        this.detallePersona = await this.apiGet(`/api/personas/${persona.dni}`);
+      } catch (err) {
+        this.detallePersona = { ...persona, detalle: null };
+      }
     },
 
     // ────────────────────────────────────────────────────────────
@@ -490,6 +488,24 @@ function gau9App() {
       const d = new Date(iso);
       return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
         + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    civilesPorRol() {
+      const orden = ['DOCENTE', 'JUEZ', 'ABOGADO', 'ESTUDIANTE', 'CIVIL', 'OTRO'];
+      const grupos = {};
+      for (const c of this.civiles) {
+        const rol = c.rol || 'OTRO';
+        if (!grupos[rol]) grupos[rol] = [];
+        grupos[rol].push(c);
+      }
+      return orden
+        .filter(r => grupos[r]?.length)
+        .map(r => ({ rol: r, items: grupos[r] }))
+        .concat(
+          Object.keys(grupos)
+            .filter(r => !orden.includes(r) && grupos[r].length)
+            .map(r => ({ rol: r, items: grupos[r] }))
+        );
     },
 
     fmtFechaSolo(iso) {

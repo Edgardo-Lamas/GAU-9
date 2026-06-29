@@ -22,7 +22,21 @@ router.get('/:dni', auth, async (req, res) => {
     let detalle = null;
 
     if (tipo === 'INTERNO') {
-      const r = await db.query('SELECT * FROM internos_detalle WHERE dni = $1', [dni]);
+      const r = await db.query(`
+        SELECT
+          id.*,
+          ps.tarea_asignada, ps.taller, ps.categoria,
+          ps.sector       AS trabajo_sector,
+          ps.situacion    AS trabajo_situacion,
+          ps.dias_trabajados,
+          ps.fecha_alta   AS trabajo_desde,
+          ps.id_numero
+        FROM internos_detalle id
+        LEFT JOIN personal_spb ps ON ps.ficha_conducta = id.ficha_conducta
+        WHERE id.dni = $1
+        ORDER BY ps.fecha_alta DESC NULLS LAST
+        LIMIT 1
+      `, [dni]);
       detalle = r.rows[0] || null;
     } else if (tipo === 'SPB') {
       const r = await db.query('SELECT * FROM personal_spb WHERE dni = $1 ORDER BY creado_en DESC LIMIT 1', [dni]);

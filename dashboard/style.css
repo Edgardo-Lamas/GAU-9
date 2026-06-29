@@ -1384,3 +1384,28 @@ textarea.input { resize: none; }
   color: rgba(255,255,255,0.55);
   margin-top: 0.15rem;
 }
+
+/* ── PERFIL INTERNO ──────────────────────────────────────────── */
+.perfil-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.perfil-label {
+  font-size: 0.72rem;
+  color: var(--slate-400);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.perfil-value {
+  font-size: 0.8rem;
+  color: var(--navy-800);
+  font-weight: 600;
+  text-align: right;
+}
