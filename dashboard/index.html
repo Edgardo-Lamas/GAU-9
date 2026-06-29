@@ -117,62 +117,129 @@
           Cargando métricas…
         </div>
 
-        <div class="px-4 pb-4 space-y-5" x-show="resumen">
+        <div class="px-4 pb-4 space-y-3" x-show="resumen">
 
-          <!-- Presentismo -->
-          <div>
-            <p class="section-header">Presentismo de hoy</p>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="metric-card metric-card-green"
-                @click="cambiarVista('presentismo'); filtroNivel='PRIMARIO'">
-                <div class="metric-label">Primario</div>
-                <div class="metric-number" style="color: var(--green-600)"
-                  x-text="resumen?.presentismo?.primario?.presentes ?? '—'"></div>
-                <div class="metric-desc">presentes hoy</div>
-                <div class="metric-footer">
-                  <span x-text="`${resumen?.presentismo?.primario?.ausentes ?? 0} ausentes`"></span>
-                  <span x-text="`Total ${resumen?.presentismo?.primario?.total ?? 0}`"></span>
-                </div>
+          <!-- KPI Hero: Asistencia global del día -->
+          <div class="kpi-hero">
+            <div class="kpi-hero-label">Asistencia hoy</div>
+            <div class="kpi-hero-main">
+              <div>
+                <span class="kpi-hero-number" x-text="totalPresentes()"></span>
+                <span class="kpi-hero-of" x-text="`/ ${totalAlumnos()}`"></span>
               </div>
-              <div class="metric-card metric-card-green"
-                @click="cambiarVista('presentismo'); filtroNivel='SECUNDARIO'">
-                <div class="metric-label">Secundario</div>
-                <div class="metric-number" style="color: var(--green-600)"
-                  x-text="resumen?.presentismo?.secundario?.presentes ?? '—'"></div>
-                <div class="metric-desc">presentes hoy</div>
-                <div class="metric-footer">
-                  <span x-text="`${resumen?.presentismo?.secundario?.ausentes ?? 0} ausentes`"></span>
-                  <span x-text="`Total ${resumen?.presentismo?.secundario?.total ?? 0}`"></span>
-                </div>
-              </div>
+              <div class="kpi-hero-pct"
+                :class="tasaAsistencia() >= 80 ? 'kpi-pct-green' : tasaAsistencia() >= 60 ? 'kpi-pct-amber' : 'kpi-pct-red'"
+                x-text="`${tasaAsistencia()}%`"></div>
+            </div>
+            <div class="kpi-bar-track">
+              <div class="kpi-bar-fill"
+                :class="tasaAsistencia() >= 80 ? 'kpi-fill-green' : tasaAsistencia() >= 60 ? 'kpi-fill-amber' : 'kpi-fill-red'"
+                :style="`width: ${tasaAsistencia()}%`"></div>
+            </div>
+            <div class="kpi-hero-sub">
+              <span x-text="`Primario: ${resumen?.presentismo?.primario?.presentes ?? 0}/${resumen?.presentismo?.primario?.total ?? 0}`"></span>
+              <span class="kpi-dot">·</span>
+              <span x-text="`Secundario: ${resumen?.presentismo?.secundario?.presentes ?? 0}/${resumen?.presentismo?.secundario?.total ?? 0}`"></span>
             </div>
           </div>
 
-          <!-- Civiles y Traslados -->
-          <div>
-            <p class="section-header">Movimientos de hoy</p>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="metric-card metric-card-blue" @click="cambiarVista('civiles')">
-                <div class="metric-label">👥 Civiles</div>
-                <div class="metric-number" style="color: var(--blue-600)"
-                  x-text="resumen?.civiles?.total ?? '—'"></div>
-                <div class="metric-desc">con autorización</div>
-              </div>
-              <div class="metric-card"
-                :class="(resumen?.traslados?.pendientes ?? 0) > 0 ? 'metric-card-amber' : 'metric-card-navy'"
-                @click="cambiarVista('traslados')">
-                <div class="metric-label">🚗 Traslados</div>
-                <div class="metric-number"
-                  :style="(resumen?.traslados?.pendientes ?? 0) > 0 ? 'color: var(--amber-600)' : 'color: var(--navy-700)'"
-                  x-text="resumen?.traslados?.total ?? '—'"></div>
-                <div class="metric-desc">salidas registradas</div>
-                <div class="metric-footer" x-show="(resumen?.traslados?.pendientes ?? 0) > 0">
-                  <span style="color: var(--amber-700); font-weight: 700"
-                    x-text="`⚠ ${resumen?.traslados?.pendientes} sin regreso`"></span>
+          <!-- Donut charts: Primario + Secundario -->
+          <div class="grid grid-cols-2 gap-3">
+
+            <!-- Primario -->
+            <div class="donut-card" @click="cambiarVista('presentismo'); filtroNivel='PRIMARIO'">
+              <div class="donut-title">Primario</div>
+              <div class="donut-wrap">
+                <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg)">
+                  <circle cx="50" cy="50" r="40" fill="transparent"
+                    stroke="var(--slate-100)" stroke-width="10"/>
+                  <circle cx="50" cy="50" r="40" fill="transparent"
+                    :stroke="donutColor(resumen?.presentismo?.primario?.presentes, resumen?.presentismo?.primario?.total)"
+                    stroke-width="10"
+                    stroke-linecap="round"
+                    :stroke-dasharray="donutDash(resumen?.presentismo?.primario?.presentes ?? 0, resumen?.presentismo?.primario?.total ?? 0)"
+                    style="transition: stroke-dasharray 0.8s ease"/>
+                </svg>
+                <div class="donut-center-text">
+                  <span class="donut-pct-num"
+                    x-text="`${donutPct(resumen?.presentismo?.primario?.presentes ?? 0, resumen?.presentismo?.primario?.total ?? 0)}%`"></span>
                 </div>
               </div>
+              <div class="donut-legend">
+                <span class="donut-present" x-text="`${resumen?.presentismo?.primario?.presentes ?? 0} pres.`"></span>
+                <span class="donut-absent" x-text="`${resumen?.presentismo?.primario?.ausentes ?? 0} aus.`"></span>
+              </div>
             </div>
+
+            <!-- Secundario -->
+            <div class="donut-card" @click="cambiarVista('presentismo'); filtroNivel='SECUNDARIO'">
+              <div class="donut-title">Secundario</div>
+              <div class="donut-wrap">
+                <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg)">
+                  <circle cx="50" cy="50" r="40" fill="transparent"
+                    stroke="var(--slate-100)" stroke-width="10"/>
+                  <circle cx="50" cy="50" r="40" fill="transparent"
+                    :stroke="donutColor(resumen?.presentismo?.secundario?.presentes, resumen?.presentismo?.secundario?.total)"
+                    stroke-width="10"
+                    stroke-linecap="round"
+                    :stroke-dasharray="donutDash(resumen?.presentismo?.secundario?.presentes ?? 0, resumen?.presentismo?.secundario?.total ?? 0)"
+                    style="transition: stroke-dasharray 0.8s ease"/>
+                </svg>
+                <div class="donut-center-text">
+                  <span class="donut-pct-num"
+                    x-text="`${donutPct(resumen?.presentismo?.secundario?.presentes ?? 0, resumen?.presentismo?.secundario?.total ?? 0)}%`"></span>
+                </div>
+              </div>
+              <div class="donut-legend">
+                <span class="donut-present" x-text="`${resumen?.presentismo?.secundario?.presentes ?? 0} pres.`"></span>
+                <span class="donut-absent" x-text="`${resumen?.presentismo?.secundario?.ausentes ?? 0} aus.`"></span>
+              </div>
+            </div>
+
           </div>
+
+          <!-- Movimientos del día -->
+          <div class="grid grid-cols-2 gap-3">
+
+            <!-- Civiles -->
+            <div class="mov-card mov-card-blue" @click="cambiarVista('civiles')">
+              <div class="mov-icon">👥</div>
+              <div class="mov-number" x-text="resumen?.civiles?.total ?? '—'"></div>
+              <div class="mov-label">civiles autorizados</div>
+            </div>
+
+            <!-- Traslados -->
+            <div class="mov-card"
+              :class="(resumen?.traslados?.pendientes ?? 0) > 0 ? 'mov-card-amber' : 'mov-card-navy'"
+              @click="cambiarVista('traslados')">
+              <div class="mov-icon">🚗</div>
+              <div class="mov-number" x-text="resumen?.traslados?.total ?? '—'"></div>
+              <div class="mov-label">traslados hoy</div>
+              <template x-if="(resumen?.traslados?.pendientes ?? 0) > 0">
+                <div class="mov-alert" x-text="`⚠ ${resumen.traslados.pendientes} sin regreso`"></div>
+              </template>
+              <template x-if="(resumen?.traslados?.total ?? 0) > 0 && (resumen?.traslados?.pendientes ?? 0) === 0">
+                <div class="mov-ok">✓ Todos regresaron</div>
+              </template>
+            </div>
+
+          </div>
+
+          <!-- Barra de retornos (solo si hay traslados hoy) -->
+          <template x-if="(resumen?.traslados?.total ?? 0) > 0">
+            <div class="progress-card">
+              <div class="progress-card-header">
+                <span class="progress-card-label">Retornos del día</span>
+                <span class="progress-card-count"
+                  x-text="`${trasladosCompletos()} de ${resumen?.traslados?.total ?? 0}`"></span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill"
+                  :class="trasladosPct() === 100 ? 'progress-fill-green' : 'progress-fill-amber'"
+                  :style="`width: ${trasladosPct()}%`"></div>
+              </div>
+            </div>
+          </template>
 
           <!-- Actividad reciente -->
           <div>
@@ -406,7 +473,112 @@
       </button>
     </nav>
 
+    <!-- Botón flotante Asistente IA -->
+    <button x-show="autenticado && !asistenteAbierto" x-cloak
+      @click="abrirAsistente()"
+      class="fab-asistente" title="Asistente IA" aria-label="Abrir asistente">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </button>
+
   </div><!-- /autenticado -->
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- ASISTENTE IA (panel full-screen)                             -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div x-show="asistenteAbierto" x-cloak class="chat-panel">
+
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="chat-header-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">Asistente GAU-9</div>
+        <div class="chat-header-status" x-text="chatCargando ? 'Respondiendo…' : 'En línea'"></div>
+      </div>
+      <button @click="cerrarAsistente()" class="chat-close-btn" aria-label="Cerrar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Body: mensajes -->
+    <div id="chat-body" class="chat-body">
+
+      <!-- Estado vacío con sugerencias -->
+      <template x-if="chatMensajes.length === 0">
+        <div class="chat-empty">
+          <div class="chat-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--navy-700)" stroke-width="1.8" stroke-linecap="round">
+              <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div class="chat-empty-title">¿En qué puedo ayudarte?</div>
+          <div class="chat-empty-sub">Preguntame sobre presentismo, traslados, civiles o el estado del sistema hoy</div>
+          <div class="chat-sugerencias mt-3">
+            <button class="chat-sugerencia-btn" @click="usarSugerencia('¿Cuántos alumnos hay hoy en presentismo?')">Presentismo de hoy</button>
+            <button class="chat-sugerencia-btn" @click="usarSugerencia('¿Hay traslados pendientes de regreso?')">Traslados pendientes</button>
+            <button class="chat-sugerencia-btn" @click="usarSugerencia('¿Cuántos civiles ingresaron hoy?')">Civiles del día</button>
+            <button class="chat-sugerencia-btn" @click="usarSugerencia('Resumime el estado general de hoy')">Resumen general</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- Mensajes -->
+      <template x-for="(msg, i) in chatMensajes" :key="i">
+        <div :class="`chat-bubble-row ${msg.rol}`">
+          <div :class="`chat-bubble ${msg.rol}`">
+            <template x-if="msg.rol === 'asst'">
+              <span>
+                <span x-html="renderMarkdown(msg.texto)"></span>
+                <span x-show="msg.cargando && msg.texto === ''" class="chat-cursor"></span>
+                <span x-show="msg.cargando && msg.texto !== ''" class="chat-cursor"></span>
+              </span>
+            </template>
+            <template x-if="msg.rol === 'user'">
+              <span x-text="msg.texto"></span>
+            </template>
+          </div>
+        </div>
+      </template>
+
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-area">
+      <textarea
+        x-model="chatInput"
+        @keydown.enter.prevent="!$event.shiftKey && enviarMensaje()"
+        class="chat-input"
+        placeholder="Escribí tu consulta…"
+        rows="1"
+        :disabled="chatCargando"
+        x-ref="chatInput"
+        @input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight,96)+'px'"></textarea>
+      <button
+        @click="enviarMensaje()"
+        class="chat-send-btn"
+        :disabled="!chatInput.trim() || chatCargando"
+        aria-label="Enviar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+
+  </div>
 
   <!-- ════════════════════════════════════════════════════════════ -->
   <!-- MODALES                                                      -->

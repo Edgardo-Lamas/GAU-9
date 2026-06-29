@@ -40,6 +40,13 @@ function gau9App() {
     trasladoSeleccionado: null,
     civilSeleccionado: null,
 
+    // ── Asistente IA
+    asistenteAbierto: false,
+    chatMensajes: [],
+    chatHistorial: [],
+    chatInput: '',
+    chatCargando: false,
+
     // ────────────────────────────────────────────────────────────
     // Init
     // ────────────────────────────────────────────────────────────
@@ -114,6 +121,9 @@ function gau9App() {
       this.civiles = [];
       this.traslados = [];
       this.loginForm = { email: '', password: '' };
+      this.chatMensajes = [];
+      this.chatHistorial = [];
+      this.asistenteAbierto = false;
     },
 
     cerrarSesionLocal() {
@@ -484,6 +494,178 @@ function gau9App() {
         SPB: 'text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium',
       };
       return map[tipo] || 'badge-activo';
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Dashboard visual helpers
+    // ────────────────────────────────────────────────────────────
+    totalPresentes() {
+      if (!this.resumen) return 0;
+      return (this.resumen.presentismo.primario.presentes || 0)
+           + (this.resumen.presentismo.secundario.presentes || 0);
+    },
+
+    totalAlumnos() {
+      if (!this.resumen) return 0;
+      return (this.resumen.presentismo.primario.total || 0)
+           + (this.resumen.presentismo.secundario.total || 0);
+    },
+
+    tasaAsistencia() {
+      const total = this.totalAlumnos();
+      if (total === 0) return 0;
+      return Math.round((this.totalPresentes() / total) * 100);
+    },
+
+    // r=40 → circumference = 2 * π * 40 ≈ 251.33
+    donutDash(presentes, total) {
+      const circ = 251.33;
+      if (!total || total === 0) return `0 ${circ}`;
+      const filled = Math.min((presentes / total) * circ, circ);
+      return `${filled.toFixed(2)} ${circ}`;
+    },
+
+    donutPct(presentes, total) {
+      if (!total || total === 0) return 0;
+      return Math.round((presentes / total) * 100);
+    },
+
+    donutColor(presentes, total) {
+      const pct = (!total || total === 0) ? 0 : (presentes / total) * 100;
+      if (pct >= 80) return 'var(--green-600)';
+      if (pct >= 60) return 'var(--amber-600)';
+      if (pct === 0)  return 'var(--slate-200)';
+      return 'var(--red-600)';
+    },
+
+    trasladosCompletos() {
+      if (!this.resumen) return 0;
+      return (this.resumen.traslados.total || 0) - (this.resumen.traslados.pendientes || 0);
+    },
+
+    trasladosPct() {
+      const total = this.resumen?.traslados?.total || 0;
+      if (total === 0) return 0;
+      return Math.round((this.trasladosCompletos() / total) * 100);
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Asistente IA
+    // ────────────────────────────────────────────────────────────
+    abrirAsistente() {
+      this.asistenteAbierto = true;
+      this.$nextTick(() => this.scrollChatAbajo());
+    },
+
+    cerrarAsistente() {
+      this.asistenteAbierto = false;
+    },
+
+    scrollChatAbajo() {
+      const body = document.getElementById('chat-body');
+      if (body) body.scrollTop = body.scrollHeight;
+    },
+
+    async enviarMensaje() {
+      const texto = this.chatInput.trim();
+      if (!texto || this.chatCargando) return;
+      this.chatInput = '';
+
+      this.chatMensajes.push({ rol: 'user', texto });
+      this.chatMensajes.push({ rol: 'asst', texto: '', cargando: true });
+      this.chatCargando = true;
+      this.$nextTick(() => this.scrollChatAbajo());
+
+      const historialParaApi = this.chatHistorial.slice();
+
+      try {
+        const response = await fetch(`${API_BASE}/api/asistente`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.token}`,
+          },
+          body: JSON.stringify({ mensaje: texto, historial: historialParaApi }),
+        });
+
+        if (!response.ok) {
+          let errMsg = 'Error del servidor';
+          try { const e = await response.json(); errMsg = e.error || errMsg; } catch {}
+          this.chatMensajes[this.chatMensajes.length - 1].texto = errMsg;
+          this.chatMensajes[this.chatMensajes.length - 1].cargando = false;
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let textoCompleto = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.text) {
+                textoCompleto += parsed.text;
+                this.chatMensajes[this.chatMensajes.length - 1].texto = textoCompleto;
+                this.$nextTick(() => this.scrollChatAbajo());
+              }
+              if (parsed.error) {
+                this.chatMensajes[this.chatMensajes.length - 1].texto = parsed.error;
+              }
+            } catch {}
+          }
+        }
+
+        this.chatMensajes[this.chatMensajes.length - 1].cargando = false;
+
+        // Actualizar historial para próximos turnos
+        this.chatHistorial.push({ role: 'user', content: texto });
+        this.chatHistorial.push({ role: 'assistant', content: textoCompleto });
+
+        // Limitar historial a 20 turnos para no saturar tokens
+        if (this.chatHistorial.length > 20) {
+          this.chatHistorial = this.chatHistorial.slice(-20);
+        }
+
+      } catch {
+        this.chatMensajes[this.chatMensajes.length - 1].texto = 'Sin conexión — intentá de nuevo';
+        this.chatMensajes[this.chatMensajes.length - 1].cargando = false;
+      } finally {
+        this.chatCargando = false;
+        this.$nextTick(() => this.scrollChatAbajo());
+      }
+    },
+
+    usarSugerencia(texto) {
+      this.chatInput = texto;
+      this.enviarMensaje();
+    },
+
+    limpiarChat() {
+      this.chatMensajes = [];
+      this.chatHistorial = [];
+    },
+
+    renderMarkdown(texto) {
+      // Renderizado mínimo: negrita, listas, saltos de línea
+      return texto
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/\n/g, '<br>');
     },
   };
 }

@@ -1,6 +1,7 @@
 'use strict';
 
 require('dotenv').config();
+const path    = require('path');
 const express = require('express');
 const cors    = require('cors');
 const helmet  = require('helmet');
@@ -13,6 +14,7 @@ const civilesRoutes     = require('./routes/civiles');
 const trasladosRoutes   = require('./routes/traslados');
 const personasRoutes    = require('./routes/personas');
 const syncRoutes        = require('./routes/sync');
+const asistenteRoutes   = require('./routes/asistente');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +42,12 @@ app.use('/api/traslados',   trasladosRoutes);
 app.use('/api/buscar',      personasRoutes);   // GET /api/buscar?q=texto
 app.use('/api/personas',    personasRoutes);   // GET /api/personas/:dni
 app.use('/api/sync',        syncRoutes);
+app.use('/api/asistente',   asistenteRoutes);
+
+// Dashboard estático (solo en dev local — en Vercel lo sirve la plataforma)
+if (process.env.NODE_ENV !== 'production') {
+  app.use(express.static(path.join(__dirname, '../dashboard')));
+}
 
 // 404
 app.use((req, res) => {
