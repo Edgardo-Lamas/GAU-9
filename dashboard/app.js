@@ -204,12 +204,14 @@ function gau9App() {
     async cargarResumen() {
       this.cargando = true;
       try {
-        const [resumen, actividad] = await Promise.all([
+        const [resumen, actividad, civilesHoy] = await Promise.all([
           this.apiGet('/api/dashboard/resumen'),
           this.apiGet('/api/actividad?limit=3'),
+          this.apiGet('/api/civiles/hoy'),
         ]);
         this.resumen = resumen;
         this.actividadReciente = actividad;
+        this.civiles = civilesHoy;
       } catch (err) {
         this.errorGlobal = err.message;
       } finally {

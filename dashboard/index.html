@@ -202,10 +202,21 @@
           <div class="grid grid-cols-2 gap-3">
 
             <!-- Civiles -->
-            <div class="mov-card mov-card-blue" @click="cambiarVista('civiles')">
+            <div class="mov-card mov-card-blue" @click="cambiarVista('civiles')"
+              style="cursor:pointer">
               <div class="mov-icon">👥</div>
-              <div class="mov-number" x-text="resumen?.civiles?.total ?? '—'"></div>
+              <div class="mov-number" x-text="civiles.length || resumen?.civiles?.total ?? '—'"></div>
               <div class="mov-label">civiles para hoy</div>
+              <template x-if="civiles.length > 0">
+                <div class="mov-civiles-list">
+                  <template x-for="(c, i) in civiles.slice(0, 3)" :key="c.id">
+                    <div class="mov-civil-item"
+                      x-text="`${c.apellido_1}, ${c.nombre} · ${c.rol}`"></div>
+                  </template>
+                  <div x-show="civiles.length > 3" class="mov-civil-mas"
+                    x-text="`+ ${civiles.length - 3} más`"></div>
+                </div>
+              </template>
             </div>
 
             <!-- Traslados -->

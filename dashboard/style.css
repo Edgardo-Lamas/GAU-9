@@ -1360,3 +1360,27 @@ textarea.input { resize: none; }
 
 .chat-table tbody tr:last-child td { border-bottom: none; }
 .chat-table tbody tr:nth-child(even) { background: var(--slate-50); }
+
+/* ── MOV-CARD CIVILES LISTA ─────────────────────────────────── */
+.mov-civiles-list {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  width: 100%;
+}
+
+.mov-civil-item {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mov-civil-mas {
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.55);
+  margin-top: 0.15rem;
+}
