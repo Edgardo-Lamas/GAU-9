@@ -1,4 +1,4 @@
-const CACHE_VERSION  = 'gau9-v5';
+const CACHE_VERSION  = 'gau9-v6';
 const CACHE_STATIC   = `${CACHE_VERSION}-static`;
 const CACHE_API      = `${CACHE_VERSION}-api`;
 

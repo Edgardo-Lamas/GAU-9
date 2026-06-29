@@ -205,7 +205,7 @@
             <div class="mov-card mov-card-blue" @click="cambiarVista('civiles')">
               <div class="mov-icon">👥</div>
               <div class="mov-number" x-text="resumen?.civiles?.total ?? '—'"></div>
-              <div class="mov-label">civiles autorizados</div>
+              <div class="mov-label">civiles para hoy</div>
             </div>
 
             <!-- Traslados -->
@@ -354,7 +354,7 @@
       <div x-show="vistaActual === 'civiles'">
         <div class="page-bar">
           <span class="page-count">
-            <span x-text="civiles.length"></span> civiles autorizados hoy
+            <span x-text="civiles.length"></span> civiles para hoy
           </span>
           <button @click="cargarCiviles()" class="refresh-btn">↻ Actualizar</button>
         </div>
@@ -371,6 +371,10 @@
                     <p class="list-card-meta" x-text="`${c.rol} · DNI ${c.dni}`"></p>
                     <p x-show="c.actividad" class="text-xs mt-1 font-medium"
                       style="color: var(--slate-600)" x-text="c.actividad"></p>
+                    <p x-show="c.dias_horarios" class="text-xs mt-1 font-semibold"
+                      style="color: var(--navy-700)" x-text="c.dias_horarios"></p>
+                    <p class="text-xs mt-0.5" style="color: var(--slate-500)"
+                      x-text="`Autorizado del ${fmtFechaSolo(c.alta)} al ${fmtFechaSolo(c.fin)}`"></p>
                     <p x-show="c.gdeba_nro" class="text-xs mt-0.5"
                       style="color: var(--slate-400)" x-text="`GDEBA: ${c.gdeba_nro}`"></p>
                   </div>
@@ -388,7 +392,7 @@
           </template>
           <div x-show="!cargando && civiles.length === 0" class="empty-state">
             <div class="empty-state-icon">👥</div>
-            <div class="empty-state-text">Sin civiles autorizados hoy</div>
+            <div class="empty-state-text">Sin civiles programados para hoy</div>
           </div>
         </div>
       </div>

@@ -24,6 +24,17 @@ router.get('/resumen', auth, async (req, res) => {
         WHERE estado = 'ACTIVO'
           AND alta <= CURRENT_DATE
           AND (fin IS NULL OR fin >= CURRENT_DATE)
+          AND LOWER(dias_horarios) ILIKE '%' || (
+            CASE EXTRACT(DOW FROM CURRENT_DATE)
+              WHEN 0 THEN 'domingo'
+              WHEN 1 THEN 'lunes'
+              WHEN 2 THEN 'martes'
+              WHEN 3 THEN 'mi_rcoles'
+              WHEN 4 THEN 'jueves'
+              WHEN 5 THEN 'viernes'
+              WHEN 6 THEN 's_bado'
+            END
+          ) || '%'
       `),
       db.query(`
         SELECT
