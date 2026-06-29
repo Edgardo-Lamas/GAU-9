@@ -30,6 +30,7 @@ function gau9App() {
     resultadosBusqueda: [],
     busquedaQ: '',
     filtroNivel: '',
+    filtroBusqueda: '',
 
     // ── Forms modales
     formTraslado: {},
@@ -233,8 +234,16 @@ function gau9App() {
     },
 
     presentismoFiltrado() {
-      if (!this.filtroNivel) return this.presentismo;
-      return this.presentismo.filter(r => r.nivel === this.filtroNivel);
+      let lista = this.presentismo;
+      if (this.filtroNivel) lista = lista.filter(r => r.nivel === this.filtroNivel);
+      if (this.filtroBusqueda.trim().length >= 2) {
+        const q = this.filtroBusqueda.trim().toLowerCase();
+        lista = lista.filter(r =>
+          `${r.apellido_1} ${r.nombre}`.toLowerCase().includes(q) ||
+          (r.ficha_conducta || '').includes(q)
+        );
+      }
+      return lista;
     },
 
     // ────────────────────────────────────────────────────────────

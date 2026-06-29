@@ -944,6 +944,117 @@ textarea.input { resize: none; }
 .progress-fill-green { background: linear-gradient(90deg, var(--green-600), #4ade80); }
 .progress-fill-amber { background: linear-gradient(90deg, var(--amber-600), #fbbf24); }
 
+/* ── PRESENTISMO MEJORAS ─────────────────────────────────────── */
+.presnt-date-banner {
+  background: linear-gradient(135deg, var(--navy-900), var(--navy-800));
+  padding: 0.75rem 1rem 0.625rem;
+  border-bottom: 2px solid var(--gold-400);
+}
+
+.presnt-date-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-400);
+  margin-bottom: 0.15rem;
+}
+
+.presnt-date-value {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: capitalize;
+}
+
+.presnt-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.presnt-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--slate-400);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.presnt-search-input {
+  width: 100%;
+  background: var(--card-bg);
+  border: 1.5px solid var(--slate-200);
+  border-radius: 10px;
+  padding: 0.5rem 2.25rem 0.5rem 2.25rem;
+  font-size: 0.875rem;
+  color: var(--slate-800);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.presnt-search-input:focus { border-color: var(--navy-600); }
+.presnt-search-input::placeholder { color: var(--slate-400); }
+
+.presnt-search-clear {
+  position: absolute;
+  right: 0.625rem;
+  background: none;
+  border: none;
+  color: var(--slate-400);
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.presnt-badge-p {
+  width: 3rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: var(--green-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--green-700);
+  border: 1.5px solid rgb(22 163 74 / 0.25);
+}
+
+.presnt-badge-a {
+  width: 3rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: var(--red-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--red-700);
+  border: 1.5px solid rgb(220 38 38 / 0.2);
+}
+
+.presnt-pab {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slate-600);
+}
+
+.presnt-nivel {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--slate-400);
+  margin-top: 0.125rem;
+}
+
 /* ── FAB ASISTENTE ───────────────────────────────────────────── */
 .fab-asistente {
   position: fixed;
