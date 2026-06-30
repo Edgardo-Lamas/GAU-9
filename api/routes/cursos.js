@@ -42,7 +42,7 @@ router.get('/:id/alumnos', auth, async (req, res) => {
       SELECT
         i.id, i.ficha_conducta, i.estado, i.observaciones, i.actualizado_en,
         pe.nombre, pe.apellido_1, pe.apellido_2,
-        id2.nivel_educativo, id2.anio_cursada
+        id2.nivel_educativo
       FROM inscripciones i
       LEFT JOIN internos_detalle id2 ON id2.ficha_conducta = i.ficha_conducta
       LEFT JOIN personas pe          ON pe.dni = id2.dni
