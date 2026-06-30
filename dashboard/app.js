@@ -31,6 +31,7 @@ function gau9App() {
     busquedaQ: '',
     filtroNivel: '',
     filtroBusqueda: '',
+    civilesVista: 'hoy',
     cursos: [],
     alumnos: [],
     cursoExpandido: null,
@@ -258,10 +259,12 @@ function gau9App() {
     // ────────────────────────────────────────────────────────────
     // Civiles
     // ────────────────────────────────────────────────────────────
-    async cargarCiviles() {
+    async cargarCiviles(modo) {
+      if (modo) this.civilesVista = modo;
       this.cargando = true;
       try {
-        this.civiles = await this.apiGet('/api/civiles/hoy');
+        const endpoint = this.civilesVista === 'todos' ? '/api/civiles/vigentes' : '/api/civiles/hoy';
+        this.civiles = await this.apiGet(endpoint);
       } catch (err) {
         this.errorGlobal = err.message;
       } finally {

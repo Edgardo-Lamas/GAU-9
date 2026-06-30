@@ -207,7 +207,7 @@
             <div class="mov-card mov-card-blue" @click="cambiarVista('civiles')"
               style="cursor:pointer">
               <div class="mov-icon">👥</div>
-              <div class="mov-number" x-text="civiles.length || resumen?.civiles?.total ?? '—'"></div>
+              <div class="mov-number" x-text="civiles.length > 0 ? civiles.length : (resumen?.civiles?.total ?? '—')"></div>
               <div class="mov-label">civiles para hoy</div>
               <template x-if="civiles.length > 0">
                 <div class="mov-civiles-list">
@@ -367,9 +367,19 @@
       <div x-show="vistaActual === 'civiles'">
         <div class="page-bar">
           <span class="page-count">
-            <span x-text="civiles.length"></span> civiles para hoy
+            <span x-text="civiles.length"></span>
+            <span x-text="civilesVista === 'todos' ? 'civiles autorizados (todos)' : 'civiles para hoy'"></span>
           </span>
           <button @click="cargarCiviles()" class="refresh-btn">↻ Actualizar</button>
+        </div>
+
+        <div class="px-4 pt-2 pb-1">
+          <div class="seg-control">
+            <button @click="cargarCiviles('hoy')"
+              :class="civilesVista === 'hoy' ? 'seg-active' : ''">Hoy</button>
+            <button @click="cargarCiviles('todos')"
+              :class="civilesVista === 'todos' ? 'seg-active' : ''">Todos los autorizados</button>
+          </div>
         </div>
 
         <div x-show="cargando && vistaActual==='civiles'" class="loading-spinner">Cargando…</div>
@@ -422,7 +432,8 @@
 
           <div x-show="!cargando && civiles.length === 0" class="empty-state">
             <div class="empty-state-icon">👥</div>
-            <div class="empty-state-text">Sin civiles programados para hoy</div>
+            <div class="empty-state-text"
+              x-text="civilesVista === 'todos' ? 'Sin civiles autorizados' : 'Sin civiles programados para hoy'"></div>
           </div>
         </div>
       </div>
