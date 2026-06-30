@@ -6,8 +6,10 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
+  // Cada función serverless de Vercel instancia su propio pool — con max alto,
+  // pocas invocaciones concurrentes ya agotaban el límite del pooler.
+  max: process.env.NODE_ENV === 'production' ? 3 : 10,
+  idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 5000,
 });
 
