@@ -1078,6 +1078,14 @@
 <script src="app.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
+    // Cuando el SW nuevo toma el control, recargamos una sola vez para
+    // que la pestaña abierta muestre la versión nueva sin intervención manual.
+    let refrescando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refrescando) return;
+      refrescando = true;
+      window.location.reload();
+    });
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     });
