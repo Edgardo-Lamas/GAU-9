@@ -440,6 +440,27 @@ function gau9App() {
       }
     },
 
+    generarQRDataUrl(texto) {
+      return new Promise((resolve, reject) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+        document.body.appendChild(div);
+        try {
+          new QRCode(div, { text: texto, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+        } catch (err) {
+          document.body.removeChild(div);
+          reject(err);
+          return;
+        }
+        setTimeout(() => {
+          const canvas = div.querySelector('canvas');
+          const dataUrl = canvas ? canvas.toDataURL('image/png') : null;
+          document.body.removeChild(div);
+          dataUrl ? resolve(dataUrl) : reject(new Error('No se pudo generar el QR'));
+        }, 50);
+      });
+    },
+
     async generarPDFCertificado(cert) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -511,7 +532,7 @@ function gau9App() {
 
       // QR + código de validación
       const urlVerificacion = `${window.location.origin}/verificar/${cert.codigo}`;
-      const qrDataUrl = await QRCode.toDataURL(urlVerificacion, { width: 200, margin: 1 });
+      const qrDataUrl = await this.generarQRDataUrl(urlVerificacion);
       doc.addImage(qrDataUrl, 'PNG', w - 38, h - 38, 24, 24);
       doc.setFontSize(7);
       doc.setTextColor(120, 120, 120);
