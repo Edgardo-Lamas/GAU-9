@@ -1,12 +1,12 @@
 'use strict';
 
 require('dotenv').config();
-const db = require('../api/db');
 const { leerXlsx, xlsxAFilas, DRIVE_IDS } = require('./drive');
 const {
   normalizarDNI, normalizarFC, normalizarTurno,
   splitApellidoNombre, formatearFecha, mesDesdeNombreHoja, normalizarEstadoPresentismo,
 } = require('./normalizar');
+const { batchUpsertPersonas, batchUpsertInternosDetalle, batchInsertPresentismo } = require('./db_batch');
 
 const ANIO_PLANILLA = parseInt(process.env.ANIO_PLANILLA || new Date().getFullYear());
 
@@ -25,31 +25,7 @@ function limpiar(fila, idx) {
   return idx >= 0 ? String(fila[idx] || '').trim() || null : null;
 }
 
-async function upsertInterno(dni, nombre, apellido_1, apellido_2) {
-  await db.query(`
-    INSERT INTO personas (dni, tipo, nombre, apellido_1, apellido_2)
-    VALUES ($1, 'INTERNO', $2, $3, $4)
-    ON CONFLICT (dni) DO UPDATE SET
-      nombre        = EXCLUDED.nombre,
-      apellido_1    = EXCLUDED.apellido_1,
-      apellido_2    = EXCLUDED.apellido_2,
-      actualizado_en = NOW()
-  `, [dni, nombre, apellido_1, apellido_2]);
-
-  // nivel_educativo: si ya es PRIMARIO → AMBOS; si es SECUNDARIO o NULL → SECUNDARIO
-  await db.query(`
-    INSERT INTO internos_detalle (dni, nivel_educativo)
-    VALUES ($1, 'SECUNDARIO')
-    ON CONFLICT (dni) DO UPDATE SET
-      nivel_educativo = CASE
-        WHEN internos_detalle.nivel_educativo = 'PRIMARIO' THEN 'AMBOS'
-        ELSE 'SECUNDARIO'
-      END,
-      actualizado_en = NOW()
-  `, [dni]);
-}
-
-async function procesarHoja(filas, mes, stats) {
+function procesarHoja(filas, mes, stats, acc) {
   if (filas.length < 2) return;
 
   let headerIdx = -1;
@@ -103,36 +79,24 @@ async function procesarHoja(filas, mes, stats) {
       const division = limpiar(fila, cols.division);
       const pabellon = limpiar(fila, cols.pabellon);
 
-      await upsertInterno(dni, nombre, apellido_1, apellido_2);
-
-      if (fc || pabellon) {
-        await db.query(`
-          UPDATE internos_detalle SET
-            ficha_conducta = COALESCE($1, ficha_conducta),
-            pabellon       = COALESCE($2, pabellon),
-            actualizado_en = NOW()
-          WHERE dni = $3
-        `, [fc, pabellon, dni]);
-      }
+      acc.personas.push({ dni, nombre, apellido_1, apellido_2 });
+      acc.detalle.push({ dni, fc, pabellon });
 
       for (const { col, dia } of colsDias) {
         const valorCelda = String(fila[col] || '').trim();
         if (!valorCelda) continue;
 
         const estado = normalizarEstadoPresentismo(valorCelda);
-        // En Secundario la columna de ausencias siempre es 0: solo insertamos presencias.
+        // En Secundario la columna de ausencias siempre es 0: solo se guardan presencias.
         if (estado !== 'P') continue;
 
         const fecha = formatearFecha(new Date(ANIO_PLANILLA, mes - 1, dia));
         if (!fecha) continue;
 
-        await db.query(`
-          INSERT INTO presentismo (dni, fecha, nivel, turno, division, curso, estado, fuente_planilla)
-          VALUES ($1,$2,'SECUNDARIO',$3,$4,$5,'P','SECUNDARIO')
-          ON CONFLICT (dni, fecha, nivel, turno) DO NOTHING
-        `, [dni, fecha, turno, division, curso]);
-
-        stats.filas_insertadas++;
+        acc.presentismo.push({
+          dni, fecha, nivel: 'SECUNDARIO', turno, division, curso, estado: 'P',
+          fuente_planilla: 'SECUNDARIO',
+        });
       }
     } catch (err) {
       stats.errores++;
@@ -151,6 +115,8 @@ async function syncSecundario() {
     detalle_errores: [],
   };
 
+  const acc = { personas: [], detalle: [], presentismo: [] };
+
   const workbook = await leerXlsx(DRIVE_IDS.PRESENTISMO_SECUNDARIO);
 
   for (const nombreHoja of workbook.SheetNames) {
@@ -158,7 +124,16 @@ async function syncSecundario() {
     if (!mes) continue;
 
     const filas = xlsxAFilas(workbook, nombreHoja);
-    await procesarHoja(filas, mes, stats);
+    procesarHoja(filas, mes, stats, acc);
+  }
+
+  try {
+    await batchUpsertPersonas(acc.personas);
+    await batchUpsertInternosDetalle(acc.detalle, 'SECUNDARIO');
+    stats.filas_insertadas = await batchInsertPresentismo(acc.presentismo, { onConflictDoNothing: true });
+  } catch (err) {
+    stats.errores++;
+    stats.detalle_errores.push(`Batch insert: ${err.message}`);
   }
 
   return stats;
