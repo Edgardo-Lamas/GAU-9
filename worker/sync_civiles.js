@@ -1,12 +1,12 @@
 'use strict';
 
 require('dotenv').config();
-const db = require('../api/db');
 const { leerSheetCompleto, DRIVE_IDS } = require('./drive');
 const {
   normalizarDNI, mapearRol, parsearFecha,
   splitApellidoNombre, formatearFecha,
 } = require('./normalizar');
+const { batchUpsertPersonas, batchUpsertCiviles } = require('./db_batch');
 
 // Busca el índice de columna comparando texto limpio (sin puntos/espacios)
 function colIdx(headers, variantes) {
@@ -59,10 +59,14 @@ async function syncCiviles() {
     dias:         colIdx(headers, ['diashorarios', 'diasyhora', 'dias', 'horarios']),
     destino:      colIdx(headers, ['destino', 'establecimiento', 'lugar']),
     origen:       colIdx(headers, ['origen', 'institucion', 'escuela', 'universidad']),
-    gdeba:        colIdx(headers, ['gdeba', 'autorizacion', 'nrogdeba', 'nrodeautorizacion']),
+    gdeba:        colIdx(headers, ['gdeba', 'autorizacion', 'nrodeautorizacion']),
     estado:       colIdx(headers, ['estado', 'situacion']),
     observaciones: colIdx(headers, ['observaciones', 'obs', 'notas', 'detalle']),
   };
+
+  // Acumular en memoria — recién escribimos a la base al final, en lote
+  const personas = [];
+  const civiles = [];
 
   for (let i = headerIdx + 1; i < filas.length; i++) {
     const fila = filas[i];
@@ -95,73 +99,30 @@ async function syncCiviles() {
         ? destinoRaw
         : (destinoRaw ? 'OTRO' : null);
 
-      // Upsert personas
-      await db.query(`
-        INSERT INTO personas (dni, tipo, nombre, apellido_1, apellido_2)
-        VALUES ($1, 'CIVIL', $2, $3, $4)
-        ON CONFLICT (dni) DO UPDATE SET
-          nombre        = EXCLUDED.nombre,
-          apellido_1    = EXCLUDED.apellido_1,
-          apellido_2    = EXCLUDED.apellido_2,
-          actualizado_en = NOW()
-      `, [dni, nombre, apellido_1, apellido_2]);
-
-      // Chequear si ya existe por (dni, alta)
-      const existe = await db.query(
-        'SELECT id FROM civiles_ingreso WHERE dni = $1 AND alta = $2 LIMIT 1',
-        [dni, altaStr]
-      );
-
-      if (existe.rows.length === 0) {
-        await db.query(`
-          INSERT INTO civiles_ingreso
-            (dni, rol, alta, fin, actividad, dias_horarios, destino, origen, gdeba_nro, estado, observaciones, fuente_fila)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-        `, [
-          dni, rol, altaStr, finStr,
-          limpiar(fila, cols.actividad),
-          limpiar(fila, cols.dias),
-          destino,
-          limpiar(fila, cols.origen),
-          limpiar(fila, cols.gdeba),
-          estado,
-          limpiar(fila, cols.observaciones),
-          i + 1,
-        ]);
-        stats.filas_insertadas++;
-      } else {
-        await db.query(`
-          UPDATE civiles_ingreso SET
-            rol           = $1,
-            fin           = $2,
-            actividad     = $3,
-            dias_horarios = $4,
-            destino       = $5,
-            origen        = $6,
-            gdeba_nro     = $7,
-            estado        = $8,
-            observaciones = $9,
-            fuente_fila   = $10,
-            actualizado_en = NOW()
-          WHERE dni = $11 AND alta = $12
-        `, [
-          rol, finStr,
-          limpiar(fila, cols.actividad),
-          limpiar(fila, cols.dias),
-          destino,
-          limpiar(fila, cols.origen),
-          limpiar(fila, cols.gdeba),
-          estado,
-          limpiar(fila, cols.observaciones),
-          i + 1,
-          dni, altaStr,
-        ]);
-        stats.filas_actualizadas++;
-      }
+      personas.push({ dni, nombre, apellido_1, apellido_2 });
+      civiles.push({
+        dni, rol, alta: altaStr, fin: finStr,
+        actividad: limpiar(fila, cols.actividad),
+        dias_horarios: limpiar(fila, cols.dias),
+        destino,
+        origen: limpiar(fila, cols.origen),
+        gdeba_nro: limpiar(fila, cols.gdeba),
+        estado,
+        observaciones: limpiar(fila, cols.observaciones),
+        fuente_fila: i + 1,
+      });
     } catch (err) {
       stats.errores++;
       stats.detalle_errores.push(`Fila ${i + 1}: ${err.message}`);
     }
+  }
+
+  try {
+    await batchUpsertPersonas(personas, 'CIVIL');
+    stats.filas_insertadas = await batchUpsertCiviles(civiles);
+  } catch (err) {
+    stats.errores++;
+    stats.detalle_errores.push(`Batch insert: ${err.message}`);
   }
 
   return stats;
