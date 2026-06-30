@@ -204,9 +204,9 @@
           <div class="grid grid-cols-2 gap-3">
 
             <!-- Civiles -->
-            <div class="mov-card mov-card-blue" @click="cambiarVista('civiles')"
+            <div class="mov-card mov-card-navy" @click="cambiarVista('civiles')"
               style="cursor:pointer">
-              <div class="mov-icon">👥</div>
+              <svg class="mov-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <div class="mov-number" x-text="civiles.length > 0 ? civiles.length : (resumen?.civiles?.total ?? '—')"></div>
               <div class="mov-label">civiles para hoy</div>
               <template x-if="civiles.length > 0">
@@ -225,7 +225,7 @@
             <div class="mov-card"
               :class="(resumen?.traslados?.pendientes ?? 0) > 0 ? 'mov-card-amber' : 'mov-card-navy'"
               @click="cambiarVista('traslados')">
-              <div class="mov-icon">🚗</div>
+              <svg class="mov-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/></svg>
               <div class="mov-number" x-text="resumen?.traslados?.total ?? '—'"></div>
               <div class="mov-label">traslados hoy</div>
               <template x-if="(resumen?.traslados?.pendientes ?? 0) > 0">
@@ -400,7 +400,7 @@
               <div class="space-y-2">
                 <template x-for="c in grupo.items" :key="c.id">
                   <div class="list-card">
-                    <div class="list-card-inner list-card-blue">
+                    <div class="list-card-inner list-card-navy">
                       <div class="flex items-start justify-between gap-3">
                         <div class="flex-1 min-w-0">
                           <p class="list-card-name" x-text="`${c.apellido_1}, ${c.nombre}`"></p>
@@ -643,27 +643,33 @@
     <nav class="bottom-nav">
       <button @click="cambiarVista('inicio')" class="nav-item"
         :class="vistaActual==='inicio' ? 'nav-item-active' : ''">
-        <span class="nav-icon">🏠</span><span>Inicio</span>
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Inicio</span>
       </button>
       <button @click="cambiarVista('presentismo')" class="nav-item"
         :class="vistaActual==='presentismo' ? 'nav-item-active' : ''">
-        <span class="nav-icon">📋</span><span>Asistencia</span>
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h6"/></svg>
+        <span>Asistencia</span>
       </button>
       <button @click="cambiarVista('civiles')" class="nav-item"
         :class="vistaActual==='civiles' ? 'nav-item-active' : ''">
-        <span class="nav-icon">👥</span><span>Civiles</span>
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Civiles</span>
       </button>
       <button @click="cambiarVista('traslados')" class="nav-item"
         :class="vistaActual==='traslados' ? 'nav-item-active' : ''">
-        <span class="nav-icon">🚗</span><span>Traslados</span>
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/></svg>
+        <span>Traslados</span>
       </button>
       <button @click="cambiarVista('cursos')" class="nav-item"
         :class="vistaActual==='cursos' ? 'nav-item-active' : ''">
-        <span class="nav-icon">📚</span><span>Cursos</span>
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Cursos</span>
       </button>
       <button @click="cambiarVista('buscar')" class="nav-item"
         :class="vistaActual==='buscar' ? 'nav-item-active' : ''">
-        <span class="nav-icon">🔍</span><span>Buscar</span>
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>Buscar</span>
       </button>
     </nav>
 
