@@ -20,6 +20,10 @@
       "dest": "api/index.js"
     },
     {
+      "src": "/verificar/(.*)",
+      "dest": "dashboard/verificar.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "dashboard/$1"
     }

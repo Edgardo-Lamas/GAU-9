@@ -35,6 +35,7 @@ function gau9App() {
     alumnos: [],
     cursoExpandido: null,
     cargandoAlumnos: false,
+    generandoCertificados: false,
 
     // ── Forms modales
     formTraslado: {},
@@ -418,6 +419,107 @@ function gau9App() {
       } catch (err) {
         this.errorGlobal = `Error al actualizar estado: ${err.message}`;
       }
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // Certificados
+    // ────────────────────────────────────────────────────────────
+    async generarCertificados(curso) {
+      this.generandoCertificados = true;
+      try {
+        await this.apiPost(`/api/cursos/${curso.id}/certificados`, {});
+        const todos = await this.apiGet(`/api/cursos/${curso.id}/certificados`);
+        for (const cert of todos) {
+          await this.generarPDFCertificado(cert);
+        }
+        await this.cargarCursos();
+      } catch (err) {
+        this.errorGlobal = `Error al generar certificados: ${err.message}`;
+      } finally {
+        this.generandoCertificados = false;
+      }
+    },
+
+    async generarPDFCertificado(cert) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const w = doc.internal.pageSize.getWidth();
+      const h = doc.internal.pageSize.getHeight();
+
+      // Borde institucional
+      doc.setDrawColor(15, 31, 74);
+      doc.setLineWidth(1.2);
+      doc.rect(8, 8, w - 16, h - 16);
+      doc.setLineWidth(0.3);
+      doc.rect(11, 11, w - 22, h - 22);
+
+      // Encabezado
+      doc.setTextColor(15, 31, 74);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('COORDINACIÓN ACADÉMICA — UNIDAD 9', w / 2, 26, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Servicio Penitenciario Bonaerense', w / 2, 32, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(201, 162, 39);
+      doc.text('CERTIFICADO DE FINALIZACIÓN', w / 2, 52, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      doc.text('Se certifica que', w / 2, 67, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(15, 31, 74);
+      doc.text(cert.nombre_completo, w / 2, 78, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      doc.text('ha completado satisfactoriamente el curso', w / 2, 89, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(15, 31, 74);
+      doc.text(`"${cert.curso_nombre}"`, w / 2, 98, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      doc.text(
+        `Período: ${this.fmtFechaSolo(cert.fecha_inicio)} al ${this.fmtFechaSolo(cert.fecha_fin)}`,
+        w / 2, 107, { align: 'center' }
+      );
+      if (cert.docente_nombre) {
+        doc.text(`Docente a cargo: ${cert.docente_nombre}`, w / 2, 114, { align: 'center' });
+      }
+
+      // Firmas
+      const firmaY = h - 35;
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.2);
+      doc.line(40, firmaY, 100, firmaY);
+      doc.line(w - 100, firmaY, w - 40, firmaY);
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Coordinación Académica', 70, firmaY + 5, { align: 'center' });
+      doc.text('Unidad 9 — SPB', w - 70, firmaY + 5, { align: 'center' });
+
+      // QR + código de validación
+      const urlVerificacion = `${window.location.origin}/verificar/${cert.codigo}`;
+      const qrDataUrl = await QRCode.toDataURL(urlVerificacion, { width: 200, margin: 1 });
+      doc.addImage(qrDataUrl, 'PNG', w - 38, h - 38, 24, 24);
+      doc.setFontSize(7);
+      doc.setTextColor(120, 120, 120);
+      doc.text(cert.codigo, w - 26, h - 11, { align: 'center' });
+      doc.text('Validar en gau-9.vercel.app/verificar', w - 26, h - 8, { align: 'center' });
+
+      const nombreArchivo = `Certificado_${cert.nombre_completo.replace(/[,\s]+/g, '_')}_${cert.codigo}.pdf`;
+      doc.save(nombreArchivo);
     },
 
     // ────────────────────────────────────────────────────────────

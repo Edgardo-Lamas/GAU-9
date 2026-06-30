@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificar Certificado — GAU-9</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+  body {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: linear-gradient(160deg, var(--navy-950), var(--navy-800));
+  }
+  .verif-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow-lg);
+    padding: 2rem 1.75rem;
+    text-align: center;
+  }
+  .verif-logo {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 1rem;
+    display: block;
+  }
+  .verif-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold-500);
+    margin-bottom: 0.25rem;
+  }
+  .verif-subtitle {
+    font-size: 0.78rem;
+    color: var(--slate-400);
+    margin-bottom: 1.5rem;
+  }
+  .verif-icon {
+    font-size: 2.75rem;
+    line-height: 1;
+    margin-bottom: 0.75rem;
+  }
+  .verif-status {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+  }
+  .verif-status.ok    { color: var(--green-700); }
+  .verif-status.error { color: var(--red-700); }
+  .verif-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--slate-100);
+    text-align: left;
+  }
+  .verif-row:last-child { border-bottom: none; }
+  .verif-label {
+    font-size: 0.72rem;
+    color: var(--slate-400);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .verif-value {
+    font-size: 0.85rem;
+    color: var(--navy-800);
+    font-weight: 700;
+    text-align: right;
+  }
+  .verif-codigo {
+    margin-top: 1.5rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    color: var(--slate-400);
+  }
+  .verif-foot {
+    margin-top: 1.5rem;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+  <div class="verif-card" id="card">
+    <img src="icons/icon.svg" class="verif-logo" alt="GAU-9">
+    <div class="verif-title">Coordinación Académica — Unidad 9 SPB</div>
+    <div class="verif-subtitle">Validación de certificados</div>
+    <div id="contenido">
+      <div class="verif-icon">⏳</div>
+      <div class="verif-status">Verificando…</div>
+    </div>
+  </div>
+
+  <div class="verif-foot">Sistema GAU-9 · gau-9.vercel.app</div>
+
+<script>
+  function fmtFecha(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  async function verificar() {
+    const partes = window.location.pathname.split('/').filter(Boolean);
+    const codigo = partes[partes.length - 1] || '';
+    const contenido = document.getElementById('contenido');
+
+    if (!codigo || codigo === 'verificar') {
+      contenido.innerHTML = `
+        <div class="verif-icon">❓</div>
+        <div class="verif-status error">Código no especificado</div>
+        <p style="font-size:0.8rem;color:var(--slate-500)">
+          Escaneá el código QR del certificado o ingresá la URL completa.
+        </p>`;
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/verificar/${encodeURIComponent(codigo)}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.valido) {
+        contenido.innerHTML = `
+          <div class="verif-icon">✕</div>
+          <div class="verif-status error">${data.error === 'Certificado revocado' ? 'Certificado revocado' : 'Certificado no válido'}</div>
+          <p style="font-size:0.8rem;color:var(--slate-500)">
+            El código <strong>${codigo}</strong> no corresponde a un certificado válido emitido por este sistema.
+          </p>`;
+        return;
+      }
+
+      contenido.innerHTML = `
+        <div class="verif-icon">✓</div>
+        <div class="verif-status ok">Certificado válido</div>
+        <div style="text-align:left">
+          <div class="verif-row">
+            <span class="verif-label">Nombre</span>
+            <span class="verif-value">${data.nombre_completo}</span>
+          </div>
+          <div class="verif-row">
+            <span class="verif-label">Curso</span>
+            <span class="verif-value">${data.curso_nombre}</span>
+          </div>
+          <div class="verif-row" ${data.docente_nombre ? '' : 'style="display:none"'}>
+            <span class="verif-label">Docente</span>
+            <span class="verif-value">${data.docente_nombre || ''}</span>
+          </div>
+          <div class="verif-row">
+            <span class="verif-label">Período</span>
+            <span class="verif-value">${fmtFecha(data.fecha_inicio)} al ${fmtFecha(data.fecha_fin)}</span>
+          </div>
+          <div class="verif-row">
+            <span class="verif-label">Estado</span>
+            <span class="verif-value" style="color:var(--green-700)">${data.estado}</span>
+          </div>
+          <div class="verif-row">
+            <span class="verif-label">Emitido</span>
+            <span class="verif-value">${fmtFecha(data.emitido_en)}</span>
+          </div>
+        </div>
+        <div class="verif-codigo">${data.codigo}</div>`;
+    } catch (err) {
+      contenido.innerHTML = `
+        <div class="verif-icon">⚠</div>
+        <div class="verif-status error">Error de conexión</div>
+        <p style="font-size:0.8rem;color:var(--slate-500)">No se pudo verificar el código. Probá nuevamente.</p>`;
+    }
+  }
+
+  verificar();
+</script>
+
+</body>
+</html>

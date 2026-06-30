@@ -16,8 +16,59 @@ const BASE_SELECT = `
 `;
 
 // GET /api/civiles/hoy
-// Civiles con autorización vigente hoy
+// Civiles cuyo días_horarios incluye el día de la semana de hoy
 router.get('/hoy', auth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      ${BASE_SELECT}
+      WHERE ci.estado = 'ACTIVO'
+        AND ci.alta <= CURRENT_DATE
+        AND (ci.fin IS NULL OR ci.fin >= CURRENT_DATE)
+        AND LOWER(unaccent(ci.dias_horarios)) ILIKE '%' || (
+          CASE EXTRACT(DOW FROM CURRENT_DATE)
+            WHEN 0 THEN 'domingo'
+            WHEN 1 THEN 'lunes'
+            WHEN 2 THEN 'martes'
+            WHEN 3 THEN 'miercoles'
+            WHEN 4 THEN 'jueves'
+            WHEN 5 THEN 'viernes'
+            WHEN 6 THEN 'sabado'
+          END
+        ) || '%'
+      ORDER BY pe.apellido_1, pe.nombre
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    // Si unaccent no está disponible, fallback sin normalizar acentos
+    try {
+      const result = await db.query(`
+        ${BASE_SELECT}
+        WHERE ci.estado = 'ACTIVO'
+          AND ci.alta <= CURRENT_DATE
+          AND (ci.fin IS NULL OR ci.fin >= CURRENT_DATE)
+          AND LOWER(ci.dias_horarios) ILIKE '%' || (
+            CASE EXTRACT(DOW FROM CURRENT_DATE)
+              WHEN 0 THEN 'domingo'
+              WHEN 1 THEN 'lunes'
+              WHEN 2 THEN 'martes'
+              WHEN 3 THEN 'mi_rcoles'
+              WHEN 4 THEN 'jueves'
+              WHEN 5 THEN 'viernes'
+              WHEN 6 THEN 's_bado'
+            END
+          ) || '%'
+        ORDER BY pe.apellido_1, pe.nombre
+      `);
+      res.json(result.rows);
+    } catch (err2) {
+      console.error('[civiles] /hoy:', err2.message);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// GET /api/civiles/vigentes — todos los civiles con autorización activa en el período
+router.get('/vigentes', auth, async (req, res) => {
   try {
     const result = await db.query(`
       ${BASE_SELECT}
@@ -28,7 +79,7 @@ router.get('/hoy', auth, async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error('[civiles] /hoy:', err.message);
+    console.error('[civiles] /vigentes:', err.message);
     res.status(500).json({ error: 'Error interno' });
   }
 });
